@@ -23,14 +23,22 @@ import com.nimbusds.jwt.SignedJWT;
 final class TestTokens {
 
     /**
-     * Set to the mock IdP's own base URL before tokens are minted. Spring's
-     * withIssuerLocation() requires the discovery document's `issuer` to equal
-     * the location it fetched, so both sides must agree on this value.
+     * A fake tenant ID, not a real endpoint. TenantIssuerValidator derives its two
+     * accepted issuer strings from this ID by the same string convention the real
+     * server uses — the JWKS lookup itself is redirected to the mock IdP
+     * separately (see MockEntraId / ResourceServerAcceptanceTest).
      */
-    private static String issuer = "https://login.microsoftonline.com/test-tenant/v2.0";
+    static final String TENANT_ID = "11111111-1111-1111-1111-111111111111";
 
-    static void setIssuer(String value) { issuer = value; }
-    static String issuer() { return issuer; }
+    /** The v2.0-shaped issuer: what MSAL mints when the authority has /v2.0. */
+    static final String ISSUER_V2 = "https://login.microsoftonline.com/" + TENANT_ID + "/v2.0";
+    /** The v1.0/STS-shaped issuer: what real Entra ID minted for this project's
+     *  tenant against MSAL's default authority — see TenantIssuerValidator. */
+    static final String ISSUER_STS = "https://sts.windows.net/" + TENANT_ID + "/";
+
+    private static String issuer = ISSUER_V2;
+
+    static void useIssuer(String value) { issuer = value; }
     static final String AUDIENCE = "test-api-client-id";
     static final String KEY_ID   = "test-key-1";
 
@@ -61,6 +69,11 @@ final class TestTokens {
 
     static String validNoRoles() {
         return sign(builder().build());
+    }
+
+    /** A token in the v1.0/STS issuer shape — the real-world regression case. */
+    static String validWithStsIssuer() {
+        return sign(base().issuer(ISSUER_STS).build());
     }
 
     static String expired() {

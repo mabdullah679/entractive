@@ -26,7 +26,7 @@ export async function callApi(instance, account, path) {
 
   // Read the body as text first: a 401 from Spring Security carries an empty
   // body plus a WWW-Authenticate header, and res.json() would throw on it.
-  return { status: res.status, body: parseBody(text) }
+  return { status: res.status, body: parseBody(await res.text()) }
 }
 
 /**

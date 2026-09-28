@@ -8,11 +8,11 @@ spring:
 
 app:
   auth:
-    # Entra ID v2.0 issuer. Spring derives the JWKS URI from this issuer's
-    # OpenID discovery document at startup (NFR-2: keys cached, no per-request call).
-    issuer-uri: ${AZURE_ISSUER_URI:https://login.microsoftonline.com/${AZURE_TENANT_ID}/v2.0}
+    tenant-id: ${AZURE_TENANT_ID}
     # Derived by convention rather than fetched from the discovery document, so
     # startup does not require network access to Microsoft (see SecurityConfig).
+    # Entra ID accepts JWKS lookups at this fixed path regardless of which issuer
+    # shape (v2.0 or v1.0/STS) ends up on the token — see TenantIssuerValidator.
     jwk-set-uri: ${AZURE_JWK_SET_URI:https://login.microsoftonline.com/${AZURE_TENANT_ID}/discovery/v2.0/keys}
     # Expected `aud` claim: this API's own client ID (Section 5).
     audience: ${AZURE_CLIENT_ID}

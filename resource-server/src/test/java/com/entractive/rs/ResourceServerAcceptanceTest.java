@@ -39,8 +39,8 @@ class ResourceServerAcceptanceTest {
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
-        // Point the decoder at the mock discovery document rather than Microsoft.
-        registry.add("app.auth.issuer-uri", MOCK_IDP::baseUrl);
+        // Point the decoder at the mock JWKS endpoint rather than Microsoft.
+        registry.add("app.auth.tenant-id", () -> TestTokens.TENANT_ID);
         registry.add("app.auth.jwk-set-uri", () -> MOCK_IDP.baseUrl() + "/discovery/v2.0/keys");
         registry.add("app.auth.audience", () -> TestTokens.AUDIENCE);
         registry.add("app.auth.required-role", () -> "Resource.Admin");
@@ -104,6 +104,16 @@ class ResourceServerAcceptanceTest {
     void wrongIssuerReturns401() throws Exception {
         mvc.perform(get("/api/resource").header("Authorization", "Bearer " + TestTokens.wrongIssuer()))
            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Real-world regression: a token with the v1.0/STS issuer shape is also accepted")
+    void stsIssuerShapeReturns200() throws Exception {
+        // Entra ID mints https://sts.windows.net/{tenant}/ instead of the v2.0
+        // issuer when MSAL's authority has no explicit /v2.0 suffix — a real
+        // tenant hit this and was wrongly rejected before TenantIssuerValidator.
+        mvc.perform(get("/api/resource").header("Authorization", "Bearer " + TestTokens.validWithStsIssuer()))
+           .andExpect(status().isOk());
     }
 
     @Test

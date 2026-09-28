@@ -32,17 +32,17 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableMethodSecurity   // enables @PreAuthorize on the controller (FR-7)
 public class SecurityConfig {
 
-    private final String issuerUri;
+    private final String tenantId;
     private final String jwksUri;
     private final String audience;
     private final List<String> allowedOrigins;
 
     SecurityConfig(
-            @Value("${app.auth.issuer-uri}") String issuerUri,
+            @Value("${app.auth.tenant-id}") String tenantId,
             @Value("${app.auth.jwk-set-uri}") String jwksUri,
             @Value("${app.auth.audience}") String audience,
             @Value("${app.cors.allowed-origins}") List<String> allowedOrigins) {
-        this.issuerUri = issuerUri;
+        this.tenantId = tenantId;
         this.jwksUri = jwksUri;
         this.audience = audience;
         this.allowedOrigins = allowedOrigins;
@@ -91,9 +91,14 @@ public class SecurityConfig {
                 .jwsAlgorithm(SignatureAlgorithm.RS256)
                 .build();
 
-        OAuth2TokenValidator<Jwt> withIssuer = JwtValidators.createDefaultWithIssuer(issuerUri);
+        // JwtValidators.createDefault() supplies expiry/not-before checks without
+        // pinning a single issuer string — issuer is validated separately below,
+        // since Entra ID legitimately mints two different issuer shapes for one
+        // tenant (see TenantIssuerValidator).
+        OAuth2TokenValidator<Jwt> withTiming = JwtValidators.createDefault();
+        OAuth2TokenValidator<Jwt> withIssuer = new TenantIssuerValidator(tenantId);
         OAuth2TokenValidator<Jwt> withAudience = new AudienceValidator(audience);
-        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(withIssuer, withAudience));
+        decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(withTiming, withIssuer, withAudience));
         return decoder;
     }
 
