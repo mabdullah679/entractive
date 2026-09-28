@@ -16,28 +16,70 @@ runs locally.
 ## Prerequisites
 
 - Docker Desktop 4.x with Compose v2, ≥4 GB RAM, ≥2 vCPUs
+  - **macOS:** Apple silicon or Intel; both images build for the host arch
+  - **Windows:** the WSL2 backend (the default). Run the commands from
+    PowerShell, Command Prompt, or a WSL2 shell — Docker Desktop exposes the
+    same `docker` CLI to all three
 - Ports 3000 and 8080 free (overridable — see below)
 - A Microsoft Entra ID tenant you can create app registrations in
 
-No JDK, Maven, or Node install is needed on the host — both images build inside Docker.
+No JDK, Maven, or Node install is needed on the host — both images build inside
+Docker. Commands below are given for macOS/Linux and for Windows; `docker` and
+`docker compose` invocations are byte-identical across all of them, so only the
+surrounding shell builtins (copy a file, open a browser, chain commands) differ.
 
 ## Run it
 
+Step 1 is the same everywhere: do the one-time Entra ID setup, which produces
+the five values below — see [docs/entra-id-setup.md](docs/entra-id-setup.md).
+Then pick your shell.
+
+**macOS / Linux (bash, zsh)**
+
 ```bash
-# 1. One-time Entra ID setup — produces the five values below
-#    see docs/entra-id-setup.md
+# 2. Configure
 cp .env.example .env
 $EDITOR .env          # TENANT_ID, SPA_CLIENT_ID, API_CLIENT_ID, API_SCOPE, REQUIRED_ROLE
 
-# 2. Start
+# 3. Start
 docker compose up --build -d
 
-# 3. Open
+# 4. Open
 open http://localhost:3000
+```
+
+**Windows (PowerShell)**
+
+```powershell
+# 2. Configure
+Copy-Item .env.example .env
+notepad .env          # TENANT_ID, SPA_CLIENT_ID, API_CLIENT_ID, API_SCOPE, REQUIRED_ROLE
+
+# 3. Start
+docker compose up --build -d
+
+# 4. Open
+Start-Process http://localhost:3000
+```
+
+**Windows (Command Prompt)**
+
+```bat
+REM 2. Configure
+copy .env.example .env
+notepad .env
+
+REM 3. Start
+docker compose up --build -d
+
+REM 4. Open
+start http://localhost:3000
 ```
 
 First build takes ~2 minutes (Maven and npm dependency downloads); subsequent
 `docker compose up` reaches healthy in about 11 seconds.
+
+These are identical on macOS, Linux, and Windows:
 
 ```bash
 docker compose ps              # both should read (healthy)
@@ -77,11 +119,50 @@ sessionStorage with no redirect (FR-3).
 
 ## Tests
 
+With a JDK 21 and Maven on the host:
+
+**macOS / Linux**
+
 ```bash
 cd resource-server && mvn test
 ```
 
-13 tests covering every resource-server acceptance criterion — valid token,
+**Windows (PowerShell)**
+
+```powershell
+cd resource-server; mvn test
+```
+
+**Windows (Command Prompt)**
+
+```bat
+cd resource-server && mvn test
+```
+
+Without them — Docker only, which is all `docker compose up` needs. Same image
+the Dockerfile builds with, and no `.env` required; only the path syntax differs:
+
+**macOS / Linux**
+
+```bash
+docker run --rm -v "$PWD/resource-server":/build -w /build \
+  maven:3.9-eclipse-temurin-21 mvn -B test
+```
+
+**Windows (PowerShell)**
+
+```powershell
+docker run --rm -v "${PWD}/resource-server:/build" -w /build `
+  maven:3.9-eclipse-temurin-21 mvn -B test
+```
+
+**Windows (Command Prompt)**
+
+```bat
+docker run --rm -v "%cd%/resource-server:/build" -w /build maven:3.9-eclipse-temurin-21 mvn -B test
+```
+
+14 tests covering every resource-server acceptance criterion — valid token,
 missing/malformed/expired token, untrusted signature, wrong audience, wrong
 issuer, role present/absent/mismatched, and CORS from allowed and disallowed
 origins. They run fully offline against a mock JWKS endpoint, so no tenant is

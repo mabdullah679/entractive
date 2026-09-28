@@ -86,8 +86,22 @@ path deliberately, test with a user who has no role assigned.
 
 ## 4. Fill in `.env`
 
+macOS / Linux:
+
 ```bash
 cp .env.example .env
+```
+
+Windows (PowerShell):
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Windows (Command Prompt):
+
+```bat
+copy .env.example .env
 ```
 
 | `.env` key | Where it came from |
