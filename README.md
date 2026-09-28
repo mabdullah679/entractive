@@ -96,6 +96,7 @@ needed to run them.
 | [spa/docker/env.sh](spa/docker/env.sh) | Writes `/config.js` from container env at startup |
 | [resource-server/src/main/java/com/entractive/rs/SecurityConfig.java](resource-server/src/main/java/com/entractive/rs/SecurityConfig.java) | JWT validation, role mapping, CORS |
 | [resource-server/src/main/java/com/entractive/rs/AudienceValidator.java](resource-server/src/main/java/com/entractive/rs/AudienceValidator.java) | Rejects tokens minted for another API |
+| [docs/azure-account-setup-gui.md](docs/azure-account-setup-gui.md) | Starting from zero: account, tenant, and the permission walls |
 | [docs/entra-id-setup.md](docs/entra-id-setup.md) | App registration walkthrough |
 | [docs/verification.md](docs/verification.md) | What was proven, and how |
 
