@@ -1,0 +1,63 @@
+# Local SSO stack: React SPA + Spring Boot resource server.
+# Entra ID is NOT containerized — a real tenant is required (see the spec, §2).
+services:
+  spa:
+    build:
+      context: ./spa
+    image: sso-spa:local
+    container_name: sso-spa
+    ports:
+      # Host port is overridable for machines where 3000 is taken, but it must
+      # match the redirect URI registered in Entra ID — change SPA_REDIRECT_URI
+      # and the app registration together, or sign-in will fail.
+      - "${SPA_HOST_PORT:-3000}:80"
+    environment:
+      # Read by docker/env.sh at container start and written to /config.js, so
+      # changing .env needs only a container restart, not an image rebuild.
+      VITE_AZURE_CLIENT_ID: ${SPA_CLIENT_ID:?set SPA_CLIENT_ID in .env}
+      VITE_AZURE_TENANT_ID: ${TENANT_ID:?set TENANT_ID in .env}
+      VITE_AZURE_REDIRECT_URI: ${SPA_REDIRECT_URI:-http://localhost:3000}
+      VITE_API_BASE_URL: ${API_BASE_URL:-http://localhost:8080}
+      VITE_API_SCOPE: ${API_SCOPE:?set API_SCOPE in .env}
+    networks:
+      - sso-net
+    healthcheck:
+      # 127.0.0.1, not localhost: nginx listens on IPv4 only here, while
+      # `localhost` resolves to ::1 first inside the container and is refused.
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/healthz || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    depends_on:
+      resource-server:
+        condition: service_healthy
+    restart: unless-stopped
+
+  resource-server:
+    build:
+      context: ./resource-server
+    image: sso-resource-server:local
+    container_name: sso-resource-server
+    ports:
+      - "${API_HOST_PORT:-8080}:8080"
+    environment:
+      AZURE_TENANT_ID: ${TENANT_ID:?set TENANT_ID in .env}
+      # Expected `aud` on incoming tokens: the API app registration's client ID.
+      AZURE_CLIENT_ID: ${API_CLIENT_ID:?set API_CLIENT_ID in .env}
+      AZURE_REQUIRED_ROLE: ${REQUIRED_ROLE:-Resource.Admin}
+      # The browser origin, not the Docker DNS name — the host makes the request.
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+    networks:
+      - sso-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/actuator/health | grep -q UP || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 15s
+    restart: unless-stopped
+
+networks:
+  sso-net:
+    driver: bridge

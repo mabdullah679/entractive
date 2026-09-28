@@ -1,0 +1,43 @@
+server:
+  port: 8080
+  shutdown: graceful
+
+spring:
+  application:
+    name: resource-server
+
+app:
+  auth:
+    # Entra ID v2.0 issuer. Spring derives the JWKS URI from this issuer's
+    # OpenID discovery document at startup (NFR-2: keys cached, no per-request call).
+    issuer-uri: ${AZURE_ISSUER_URI:https://login.microsoftonline.com/${AZURE_TENANT_ID}/v2.0}
+    # Derived by convention rather than fetched from the discovery document, so
+    # startup does not require network access to Microsoft (see SecurityConfig).
+    jwk-set-uri: ${AZURE_JWK_SET_URI:https://login.microsoftonline.com/${AZURE_TENANT_ID}/discovery/v2.0/keys}
+    # Expected `aud` claim: this API's own client ID (Section 5).
+    audience: ${AZURE_CLIENT_ID}
+    # App role required by GET /api/admin (FR-7).
+    required-role: ${AZURE_REQUIRED_ROLE:Resource.Admin}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
+logging:
+  level:
+    root: INFO
+    com.entractive.rs: INFO
+    # Surfaces the specific reason a token was rejected — invaluable when a
+    # 401 could be signature, issuer, audience or expiry.
+    org.springframework.security.oauth2.server.resource: DEBUG
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %-5level [%logger{22}] %msg%n"

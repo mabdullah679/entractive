@@ -1,0 +1,11 @@
+# NFR-5: secrets stay out of version control
+.env
+.env.local
+
+# build output
+node_modules/
+dist/
+target/
+
+.DS_Store
+*.log
