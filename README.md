@@ -31,8 +31,11 @@ surrounding shell builtins (copy a file, open a browser, chain commands) differ.
 ## Run it
 
 Step 1 is the same everywhere: do the one-time Entra ID setup, which produces
-the five values below — see [docs/entra-id-setup.md](docs/entra-id-setup.md).
-Then pick your shell.
+the five values below — see [docs/entra-id-setup.md](docs/entra-id-setup.md)
+for the portal walkthrough, or
+[docs/bootstrap-entra-cli.md](docs/bootstrap-entra-cli.md) to do the same
+thing with one pasted script (bash or PowerShell) instead of clicking through
+the portal. Then pick your shell.
 
 **macOS / Linux (bash, zsh)**
 
@@ -179,6 +182,8 @@ needed to run them.
 | [resource-server/src/main/java/com/entractive/rs/AudienceValidator.java](resource-server/src/main/java/com/entractive/rs/AudienceValidator.java) | Rejects tokens minted for another API |
 | [docs/azure-account-setup-gui.md](docs/azure-account-setup-gui.md) | Starting from zero: account, tenant, and the permission walls |
 | [docs/entra-id-setup.md](docs/entra-id-setup.md) | App registration walkthrough |
+| [docs/bootstrap-entra-cli.md](docs/bootstrap-entra-cli.md) | Same setup, scripted — one paste instead of the portal |
+| [docs/getting-started.html](docs/getting-started.html) | Interactive, self-contained setup guide (open in a browser) |
 | [docs/verification.md](docs/verification.md) | What was proven, and how |
 
 ## Notes on two design decisions

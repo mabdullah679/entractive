@@ -1,0 +1,1094 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Getting Started — Local SSO Stack</title>
+<style>
+  :root{
+    --bg:#f7f7f8; --panel:#ffffff; --panel-2:#f0f1f3; --border:#e0e1e5;
+    --fg:#16171a; --muted:#5b5e66; --muted-2:#84878f;
+    --accent:#2f6fed; --accent-fg:#ffffff;
+    --ok:#1a7f4e; --ok-bg:#e8f6ee;
+    --warn:#9a5b00; --warn-bg:#fff3e0;
+    --danger:#b3261e; --danger-bg:#fdecea;
+    --code-bg:#1c1d21; --code-fg:#e8e9ec; --code-accent:#7fb2ff;
+    --mac:#2f6fed; --win:#7c3aed;
+    --shadow: 0 1px 2px rgba(16,17,20,.04), 0 6px 20px rgba(16,17,20,.05);
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#101114; --panel:#17181c; --panel-2:#1d1f24; --border:#2a2c32;
+      --fg:#eef0f3; --muted:#aeb2bb; --muted-2:#82868f;
+      --accent:#6d9bff; --accent-fg:#0b1020;
+      --ok:#57d68f; --ok-bg:#0f2a1d;
+      --warn:#ffb454; --warn-bg:#2c2007;
+      --danger:#ff6b64; --danger-bg:#2c1210;
+      --code-bg:#0c0d10; --code-fg:#e8e9ec; --code-accent:#8fc1ff;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#101114; --panel:#17181c; --panel-2:#1d1f24; --border:#2a2c32;
+    --fg:#eef0f3; --muted:#aeb2bb; --muted-2:#82868f;
+    --accent:#6d9bff; --accent-fg:#0b1020;
+    --ok:#57d68f; --ok-bg:#0f2a1d;
+    --warn:#ffb454; --warn-bg:#2c2007;
+    --danger:#ff6b64; --danger-bg:#2c1210;
+    --code-bg:#0c0d10; --code-fg:#e8e9ec; --code-accent:#8fc1ff;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font:15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .shell{max-width:920px; margin:0 auto; padding:28px 20px 120px}
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    position:sticky; top:0; z-index:40; backdrop-filter: blur(10px);
+    background:color-mix(in srgb, var(--bg) 86%, transparent);
+    border-bottom:1px solid var(--border);
+  }
+  .topbar-inner{
+    max-width:920px; margin:0 auto; padding:12px 20px;
+    display:flex; align-items:center; gap:14px; justify-content:space-between; flex-wrap:wrap;
+  }
+  .brand{display:flex; align-items:center; gap:10px; font-weight:700; font-size:14px}
+  .brand-badge{
+    width:26px; height:26px; border-radius:7px; background:var(--accent); color:var(--accent-fg);
+    display:flex; align-items:center; justify-content:center; font-size:14px; flex:none;
+  }
+  .progress-wrap{flex:1; min-width:180px; display:flex; align-items:center; gap:10px}
+  .progress-track{flex:1; height:6px; border-radius:99px; background:var(--panel-2); overflow:hidden; border:1px solid var(--border)}
+  .progress-fill{height:100%; width:0%; background:var(--accent); transition:width .25s ease}
+  .progress-label{font-size:12px; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums}
+
+  /* ---------- hero ---------- */
+  h1{font-size:1.7rem; margin:8px 0 6px; letter-spacing:-0.01em}
+  .lede{color:var(--muted); margin:0 0 22px; font-size:15px; max-width:66ch}
+  .repo-pill{
+    display:inline-flex; align-items:center; gap:8px; font-size:12.5px; color:var(--muted);
+    background:var(--panel-2); border:1px solid var(--border); border-radius:14px; padding:8px 14px;
+    margin-bottom:18px; max-width:100%; flex-wrap:wrap; line-height:1.5;
+  }
+  .repo-pill code{color:var(--fg); word-break:break-word}
+
+  .diagram{
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:18px; margin:18px 0 26px; box-shadow:var(--shadow); overflow-x:auto;
+  }
+  .diagram svg{display:block; margin:0 auto; max-width:100%; height:auto}
+
+  /* ---------- OS toggle ---------- */
+  .os-toggle{
+    display:inline-flex; border:1px solid var(--border); border-radius:10px; overflow:hidden;
+    background:var(--panel); box-shadow:var(--shadow); margin:0 0 20px;
+  }
+  .os-toggle button{
+    appearance:none; border:0; background:transparent; color:var(--muted);
+    font:inherit; font-weight:600; font-size:13px; padding:9px 16px; cursor:pointer;
+    display:flex; align-items:center; gap:7px; transition:background .15s, color .15s;
+  }
+  .os-toggle button:not(:last-child){border-right:1px solid var(--border)}
+  .os-toggle button[aria-pressed="true"]{background:var(--accent); color:var(--accent-fg)}
+  .os-toggle button:hover:not([aria-pressed="true"]){background:var(--panel-2); color:var(--fg)}
+  .os-dot{width:8px; height:8px; border-radius:50%; background:currentColor; opacity:.55}
+
+  [data-os-panel]{display:none}
+  [data-os-panel].active{display:block}
+
+  /* ---------- steps ---------- */
+  .step{
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:22px 22px 20px; margin:0 0 18px; box-shadow:var(--shadow); scroll-margin-top:84px;
+    position:relative;
+  }
+  .step.done{border-color:color-mix(in srgb, var(--ok) 45%, var(--border))}
+  .step-head{display:flex; align-items:flex-start; gap:14px; margin-bottom:6px}
+  .step-num{
+    flex:none; width:30px; height:30px; border-radius:9px; background:var(--panel-2);
+    border:1px solid var(--border); display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:13px; color:var(--muted); margin-top:1px;
+  }
+  .step.done .step-num{background:var(--ok-bg); color:var(--ok); border-color:transparent}
+  .step.done .step-num::after{content:"✓"}
+  .step.done .step-num.hide-num-text{font-size:0}
+  .step-title{font-size:1.05rem; font-weight:700; margin:0; flex:1}
+  .step-sub{color:var(--muted); font-size:13.5px; margin:2px 0 0}
+  .step-body{margin-left:44px}
+  .check-row{
+    display:flex; align-items:center; gap:9px; margin-top:14px; padding-top:14px;
+    border-top:1px dashed var(--border); font-size:13.5px; color:var(--muted);
+  }
+  .check-row input{width:16px; height:16px; accent-color:var(--ok); cursor:pointer}
+  .check-row label{cursor:pointer; user-select:none}
+
+  /* ---------- code blocks ---------- */
+  .code-wrap{position:relative; margin:12px 0}
+  .code-label{
+    font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted-2);
+    margin:0 0 6px; font-weight:600;
+  }
+  pre{
+    margin:0; background:var(--code-bg); color:var(--code-fg); border-radius:9px;
+    padding:14px 44px 14px 16px; overflow-x:auto; font-size:13px; line-height:1.55;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  pre .cmt{color:#8a8f98}
+  pre .kw{color:var(--code-accent)}
+  code.inline{
+    background:var(--panel-2); border:1px solid var(--border); border-radius:5px;
+    padding:1.5px 6px; font-size:.9em; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  .copy-btn{
+    position:absolute; top:9px; right:9px; appearance:none; border:1px solid #3a3c44;
+    background:#24262c; color:#cfd2d8; border-radius:6px; padding:5px 9px; font-size:11.5px;
+    cursor:pointer; font-weight:600; display:flex; align-items:center; gap:5px;
+  }
+  .copy-btn:hover{background:#2c2e35}
+  .copy-btn.copied{background:var(--ok-bg); color:var(--ok); border-color:transparent}
+
+  /* ---------- callouts ---------- */
+  .callout{
+    display:flex; gap:11px; padding:12px 14px; border-radius:9px; margin:14px 0;
+    font-size:13.5px; line-height:1.55; border:1px solid transparent;
+  }
+  .callout .ic{flex:none; font-size:15px; line-height:1.5}
+  .callout.info{background:var(--panel-2); border-color:var(--border); color:var(--fg)}
+  .callout.warn{background:var(--warn-bg); color:var(--warn)}
+  .callout.danger{background:var(--danger-bg); color:var(--danger)}
+  .callout.ok{background:var(--ok-bg); color:var(--ok)}
+  .callout b{color:inherit}
+  .callout p{margin:0 0 6px}
+  .callout p:last-child{margin-bottom:0}
+
+  /* ---------- kv table ---------- */
+  .table-scroll{overflow-x:auto; margin:14px 0; -webkit-overflow-scrolling:touch}
+  table.kv{width:100%; min-width:460px; border-collapse:collapse; font-size:13.5px}
+  table.kv th, table.kv td{text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:top}
+  table.kv th{color:var(--muted-2); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:.03em}
+  table.kv code{white-space:nowrap}
+
+  /* ---------- mock portal chrome ---------- */
+  .portal{
+    border:1px solid var(--border); border-radius:10px; overflow:hidden; margin:14px 0;
+    background:var(--panel-2);
+  }
+  .portal-bar{
+    display:flex; align-items:center; gap:8px; padding:9px 12px; background:var(--panel);
+    border-bottom:1px solid var(--border); font-size:12px; color:var(--muted-2);
+  }
+  .portal-dots{display:flex; gap:5px}
+  .portal-dots span{width:9px; height:9px; border-radius:50%; background:var(--border)}
+  .portal-crumbs{font-size:11.5px; color:var(--muted-2)}
+  .portal-crumbs b{color:var(--muted)}
+  .portal svg{display:block; width:100%; height:auto}
+  .mock-note{
+    font-size:11.5px; color:var(--muted-2); padding:6px 12px; background:var(--panel);
+    border-top:1px solid var(--border);
+  }
+
+  /* ---------- env builder ---------- */
+  .builder{
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:20px 22px; margin:14px 0; box-shadow:var(--shadow);
+  }
+  .field{margin-bottom:13px}
+  .field label{
+    display:flex; justify-content:space-between; align-items:baseline; gap:8px;
+    font-size:12.5px; font-weight:600; color:var(--muted); margin-bottom:5px;
+  }
+  .field label .hint{font-weight:400; color:var(--muted-2); font-size:11.5px}
+  .field input{
+    width:100%; padding:9px 11px; border-radius:8px; border:1px solid var(--border);
+    background:var(--panel-2); color:var(--fg); font-size:13.5px;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  .field input:focus{outline:2px solid var(--accent); outline-offset:1px}
+  .field input.invalid{border-color:var(--danger)}
+  .field .err{font-size:11.5px; color:var(--danger); margin-top:4px; display:none}
+  .field .err.show{display:block}
+  .port-row{display:flex; gap:10px}
+  .port-row .field{flex:1}
+
+  .builder-actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:16px}
+  .btn{
+    appearance:none; border:1px solid var(--border); background:var(--panel-2); color:var(--fg);
+    font:inherit; font-weight:600; font-size:13.5px; padding:10px 16px; border-radius:9px; cursor:pointer;
+    display:inline-flex; align-items:center; gap:8px;
+  }
+  .btn:hover{background:var(--border)}
+  .btn.primary{background:var(--accent); color:var(--accent-fg); border-color:transparent}
+  .btn.primary:hover{filter:brightness(1.06)}
+  .btn:disabled{opacity:.5; cursor:not-allowed}
+
+  .env-output{margin-top:16px; display:none}
+  .env-output.show{display:block}
+
+  /* ---------- troubleshoot ---------- */
+  details.trouble{
+    border:1px solid var(--border); border-radius:9px; margin:8px 0; overflow:hidden; background:var(--panel);
+  }
+  details.trouble summary{
+    padding:11px 14px; cursor:pointer; font-weight:600; font-size:13.5px; list-style:none;
+    display:flex; align-items:center; gap:9px;
+  }
+  details.trouble summary::-webkit-details-marker{display:none}
+  details.trouble summary::before{content:"▸"; color:var(--muted-2); transition:transform .15s}
+  details.trouble[open] summary::before{transform:rotate(90deg)}
+  details.trouble .trouble-code{
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-size:12px;
+    background:var(--danger-bg); color:var(--danger); padding:2px 7px; border-radius:5px; margin-left:auto;
+  }
+  details.trouble .trouble-body{padding:0 14px 14px; font-size:13.5px; color:var(--muted); line-height:1.6}
+  details.trouble .trouble-body p{margin:0 0 8px}
+
+  /* ---------- footer / done state ---------- */
+  .finish{
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:26px 24px; text-align:center; margin-top:8px; box-shadow:var(--shadow);
+  }
+  .finish h2{margin:0 0 8px; font-size:1.2rem}
+  .finish p{color:var(--muted); margin:0 auto 16px; max-width:52ch}
+  .finish a.btn{text-decoration:none}
+
+  .toc{
+    display:flex; flex-wrap:wrap; gap:8px; margin:0 0 24px;
+  }
+  .toc a{
+    font-size:12.5px; color:var(--muted); text-decoration:none; background:var(--panel);
+    border:1px solid var(--border); padding:6px 11px; border-radius:99px;
+  }
+  .toc a:hover{color:var(--fg); border-color:var(--accent)}
+
+  footer.page{margin-top:40px; padding-top:18px; border-top:1px solid var(--border); color:var(--muted-2); font-size:12px; text-align:center}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><span class="brand-badge">🔐</span> Local SSO Stack — Setup</div>
+    <div class="progress-wrap">
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-label" id="progressLabel">0 / 7 done</div>
+    </div>
+  </div>
+</div>
+
+<div class="shell">
+
+  <h1>From clone to running localhost</h1>
+  <p class="lede">
+    A step-by-step path through this repo: install the tools, register two apps in your own
+    Microsoft Entra ID tenant, build your own <code class="inline">.env</code>, and bring the
+    stack up. Nothing here is tied to any one person's tenant — every value below comes from
+    <b>your</b> Azure portal and <b>your</b> clone.
+  </p>
+
+  <div class="repo-pill">📦 <code>github.com/&lt;owner&gt;/entractive</code> — replace <code>&lt;owner&gt;</code> with wherever you cloned this from</div>
+
+  <div class="diagram">
+    <svg viewBox="0 0 820 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Architecture: browser to SPA container to Entra ID, and SPA to resource server container">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--muted-2)"></path>
+        </marker>
+      </defs>
+      <style>
+        .box{fill:var(--panel-2); stroke:var(--border); stroke-width:1.5}
+        .cloudbox{fill:var(--panel-2); stroke:var(--accent); stroke-width:1.5; stroke-dasharray:4 3}
+        .lbl{font:600 12.5px -apple-system,Segoe UI,sans-serif; fill:var(--fg)}
+        .sub{font:11px -apple-system,Segoe UI,sans-serif; fill:var(--muted-2)}
+        .edge{fill:none; stroke:var(--muted-2); stroke-width:1.4; marker-end:url(#arrow)}
+        .edgelbl{font:10.5px -apple-system,Segoe UI,sans-serif; fill:var(--muted)}
+      </style>
+
+      <rect x="10" y="45" width="120" height="55" rx="10" class="box"></rect>
+      <text x="70" y="68" text-anchor="middle" class="lbl">Browser</text>
+      <text x="70" y="83" text-anchor="middle" class="sub">localhost</text>
+
+      <rect x="200" y="45" width="150" height="55" rx="10" class="box"></rect>
+      <text x="275" y="68" text-anchor="middle" class="lbl">spa (nginx)</text>
+      <text x="275" y="83" text-anchor="middle" class="sub">container : 3000</text>
+
+      <rect x="420" y="45" width="180" height="55" rx="10" class="box"></rect>
+      <text x="510" y="68" text-anchor="middle" class="lbl">resource-server</text>
+      <text x="510" y="83" text-anchor="middle" class="sub">container : 8080</text>
+
+      <rect x="670" y="12" width="140" height="55" rx="10" class="cloudbox"></rect>
+      <text x="740" y="35" text-anchor="middle" class="lbl">Entra ID</text>
+      <text x="740" y="50" text-anchor="middle" class="sub">your tenant (cloud)</text>
+
+      <path class="edge" d="M130,72 L198,72"></path>
+      <path class="edge" d="M350,72 L418,72"></path>
+      <text x="384" y="63" text-anchor="middle" class="edgelbl">JWT</text>
+
+      <path class="edge" d="M275,45 C 400,-10 620,-10 690,20"></path>
+      <text x="470" y="8" text-anchor="middle" class="edgelbl">sign-in redirect + token</text>
+    </svg>
+  </div>
+
+  <div class="toc">
+    <a href="#step-1">1. Prerequisites</a>
+    <a href="#step-2">2. Clone</a>
+    <a href="#step-3">3. Register API</a>
+    <a href="#step-4">4. Register SPA</a>
+    <a href="#step-5">5. Assign role</a>
+    <a href="#step-6">6. Build .env</a>
+    <a href="#step-7">7. Run</a>
+    <a href="#trouble">Troubleshooting</a>
+  </div>
+
+  <div class="os-toggle" role="group" aria-label="Choose your operating system">
+    <button type="button" data-os="mac" aria-pressed="true"><span class="os-dot"></span> macOS / Linux</button>
+    <button type="button" data-os="ps" aria-pressed="false"><span class="os-dot"></span> Windows (PowerShell)</button>
+    <button type="button" data-os="cmd" aria-pressed="false"><span class="os-dot"></span> Windows (cmd.exe)</button>
+  </div>
+
+  <!-- STEP 1 -->
+  <section class="step" id="step-1" data-step="1">
+    <div class="step-head">
+      <div class="step-num">1</div>
+      <div>
+        <h2 class="step-title">Install the tools</h2>
+        <p class="step-sub">Nothing else — no JDK, no Maven, no Node on the host. Both containers build inside Docker.</p>
+      </div>
+    </div>
+    <div class="step-body">
+      <div class="table-scroll">
+      <table class="kv">
+        <tr><th>Tool</th><th>Why</th><th>Get it</th></tr>
+        <tr><td><b>Docker Desktop</b> 4.x+, Compose v2</td><td>Builds and runs both containers</td><td>docker.com/products/docker-desktop</td></tr>
+        <tr><td>≥ 4 GB RAM / 2 vCPUs allocated to Docker</td><td>Both containers need headroom to build</td><td>Docker Desktop → Settings → Resources</td></tr>
+        <tr><td>A web browser</td><td>You'll sign in through it during setup and to use the app</td><td>—</td></tr>
+        <tr><td>A Microsoft account</td><td>Sign-in to <a href="https://entra.microsoft.com" target="_blank" rel="noopener">entra.microsoft.com</a> — any personal or work account works and auto-provisions a free tenant</td><td>signup.live.com if you need one</td></tr>
+      </table>
+      </div>
+      <div class="callout info">
+        <span class="ic">ℹ️</span>
+        <div>
+          <p><b>Windows users:</b> use the WSL2 backend for Docker Desktop (the default when you install it).
+          You can then run every command below from PowerShell, Command Prompt, or a WSL2 shell — Docker Desktop
+          exposes the same <code class="inline">docker</code> CLI to all three.</p>
+        </div>
+      </div>
+      <div class="check-row">
+        <input type="checkbox" id="chk-1"><label for="chk-1">Docker Desktop is installed and running, and I have a Microsoft account</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="step" id="step-2" data-step="2">
+    <div class="step-head">
+      <div class="step-num">2</div>
+      <div>
+        <h2 class="step-title">Clone the repo</h2>
+        <p class="step-sub">Replace the URL below with wherever you actually cloned/forked this from.</p>
+      </div>
+    </div>
+    <div class="step-body">
+
+      <div data-os-panel="mac" class="active">
+        <div class="code-wrap">
+          <p class="code-label">bash / zsh</p>
+          <pre><span class="kw">git</span> clone https://github.com/&lt;owner&gt;/entractive.git
+<span class="kw">cd</span> entractive</pre>
+          <button class="copy-btn" type="button" data-copy>Copy</button>
+        </div>
+      </div>
+
+      <div data-os-panel="ps">
+        <div class="code-wrap">
+          <p class="code-label">PowerShell</p>
+          <pre><span class="kw">git</span> clone https://github.com/&lt;owner&gt;/entractive.git
+<span class="kw">cd</span> entractive</pre>
+          <button class="copy-btn" type="button" data-copy>Copy</button>
+        </div>
+      </div>
+
+      <div data-os-panel="cmd">
+        <div class="code-wrap">
+          <p class="code-label">Command Prompt</p>
+          <pre><span class="kw">git</span> clone https://github.com/&lt;owner&gt;/entractive.git
+<span class="kw">cd</span> entractive</pre>
+          <button class="copy-btn" type="button" data-copy>Copy</button>
+        </div>
+      </div>
+
+      <div class="callout info">
+        <span class="ic">💡</span>
+        <div><p>No git? Download the ZIP from the repo's "Code" button on GitHub and extract it instead — everything past this step is identical.</p></div>
+      </div>
+
+      <div class="check-row">
+        <input type="checkbox" id="chk-2"><label for="chk-2">I have the repo on disk and a terminal open inside it</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="step" id="step-3" data-step="3">
+    <div class="step-head">
+      <div class="step-num">3</div>
+      <div>
+        <h2 class="step-title">Register the API in Entra ID</h2>
+        <p class="step-sub">Two app registrations are needed in total. This is the first: the resource server itself.</p>
+      </div>
+    </div>
+    <div class="step-body">
+
+      <p>Go to <a href="https://entra.microsoft.com" target="_blank" rel="noopener">entra.microsoft.com</a> and sign in.
+      A tenant is auto-provisioned on first sign-in if you don't already have one — no paid subscription required.</p>
+
+      <div class="portal">
+        <div class="portal-bar">
+          <div class="portal-dots"><span></span><span></span><span></span></div>
+          <div class="portal-crumbs">entra.microsoft.com <b>/ App registrations / New registration</b></div>
+        </div>
+        <svg viewBox="0 0 800 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mock of the Entra ID new app registration form">
+          <style>
+            .pf-bg{fill:var(--panel)}
+            .pf-lbl{font:600 12px -apple-system,Segoe UI,sans-serif; fill:var(--muted)}
+            .pf-val{font:13px -apple-system,Segoe UI,sans-serif; fill:var(--fg)}
+            .pf-box{fill:var(--panel-2); stroke:var(--border); stroke-width:1}
+            .pf-radio{fill:var(--panel-2); stroke:var(--muted-2); stroke-width:1.3}
+            .pf-radio-on{fill:var(--accent)}
+            .pf-btn{fill:var(--accent)}
+            .pf-btn-lbl{font:600 12px -apple-system,Segoe UI,sans-serif; fill:var(--accent-fg)}
+            .pf-h{font:700 15px -apple-system,Segoe UI,sans-serif; fill:var(--fg)}
+          </style>
+          <rect width="800" height="300" class="pf-bg"></rect>
+          <text x="24" y="34" class="pf-h">Register an application</text>
+
+          <text x="24" y="66" class="pf-lbl">Name</text>
+          <rect x="24" y="74" width="360" height="30" rx="5" class="pf-box"></rect>
+          <text x="34" y="94" class="pf-val">sso-resource-server</text>
+
+          <text x="24" y="128" class="pf-lbl">Supported account types</text>
+          <circle cx="34" cy="150" r="6" class="pf-radio pf-radio-on"></circle>
+          <text x="48" y="155" class="pf-val">Accounts in this organizational directory only</text>
+          <circle cx="34" cy="174" r="6" class="pf-radio"></circle>
+          <text x="48" y="179" class="pf-val" fill="var(--muted-2)">Accounts in any organizational directory</text>
+
+          <text x="24" y="212" class="pf-lbl">Redirect URI (optional)</text>
+          <rect x="24" y="220" width="360" height="30" rx="5" class="pf-box"></rect>
+          <text x="34" y="240" class="pf-val" fill="var(--muted-2)">— leave blank, an API has none —</text>
+
+          <rect x="24" y="262" width="88" height="30" rx="6" class="pf-btn"></rect>
+          <text x="68" y="281" text-anchor="middle" class="pf-btn-lbl">Register</text>
+        </svg>
+        <div class="mock-note">Diagram of the portal form — field names and layout match the live portal, styling won't be pixel-identical.</div>
+      </div>
+
+      <div class="table-scroll">
+      <table class="kv">
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Name</td><td><code class="inline">sso-resource-server</code></td></tr>
+        <tr><td>Supported account types</td><td>Accounts in this organizational directory only</td></tr>
+        <tr><td>Redirect URI</td><td><i>leave blank</i></td></tr>
+      </table>
+      </div>
+
+      <p>From its <b>Overview</b> page, copy two values — you'll need them in step 6:</p>
+      <div class="table-scroll">
+      <table class="kv">
+        <tr><th>Portal field</th><th>Becomes</th></tr>
+        <tr><td>Application (client) ID</td><td><code class="inline">API_CLIENT_ID</code></td></tr>
+        <tr><td>Directory (tenant) ID</td><td><code class="inline">TENANT_ID</code></td></tr>
+      </table>
+      </div>
+
+      <p><b>Expose an API</b> → <b>Add a scope</b>:</p>
+      <div class="table-scroll">
+      <table class="kv">
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Application ID URI</td><td>accept the default — <code class="inline">api://&lt;API_CLIENT_ID&gt;</code></td></tr>
+        <tr><td>Scope name</td><td><code class="inline">Api.Access</code></td></tr>
+        <tr><td>Who can consent</td><td>Admins and users</td></tr>
+        <tr><td>State</td><td>Enabled</td></tr>
+      </table>
+      </div>
+      <p>The full scope string — <code class="inline">api://&lt;API_CLIENT_ID&gt;/Api.Access</code> — becomes <code class="inline">API_SCOPE</code> in step 6.</p>
+
+      <p><b>App roles</b> → <b>Create app role</b> (this gates the <code class="inline">/api/admin</code> endpoint):</p>
+      <div class="table-scroll">
+      <table class="kv">
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Display name</td><td>Resource Admin</td></tr>
+        <tr><td>Allowed member types</td><td>Users/Groups</td></tr>
+        <tr><td>Value</td><td><code class="inline">Resource.Admin</code> — case-sensitive, becomes <code class="inline">REQUIRED_ROLE</code></td></tr>
+        <tr><td>Enabled</td><td>checked</td></tr>
+      </table>
+      </div>
+
+      <div class="check-row">
+        <input type="checkbox" id="chk-3"><label for="chk-3">API registered — I have its client ID, the tenant ID, the scope, and the app role</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 4 -->
+  <section class="step" id="step-4" data-step="4">
+    <div class="step-head">
+      <div class="step-num">4</div>
+      <div>
+        <h2 class="step-title">Register the SPA in Entra ID</h2>
+        <p class="step-sub">The public client — the thing users actually sign in through in the browser.</p>
+      </div>
+    </div>
+    <div class="step-body">
+
+      <p><b>App registrations → New registration</b> again, a second one:</p>
+
+      <div class="portal">
+        <div class="portal-bar">
+          <div class="portal-dots"><span></span><span></span><span></span></div>
+          <div class="portal-crumbs">entra.microsoft.com <b>/ App registrations / New registration</b></div>
+        </div>
+        <svg viewBox="0 0 800 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Mock of the SPA redirect URI platform selection">
+          <style>
+            .pf-bg2{fill:var(--panel)}
+            .pf-lbl2{font:600 12px -apple-system,Segoe UI,sans-serif; fill:var(--muted)}
+            .pf-val2{font:13px -apple-system,Segoe UI,sans-serif; fill:var(--fg)}
+            .pf-box2{fill:var(--panel-2); stroke:var(--border); stroke-width:1}
+            .pf-box2-on{fill:var(--panel-2); stroke:var(--accent); stroke-width:2}
+            .pf-h2{font:700 15px -apple-system,Segoe UI,sans-serif; fill:var(--fg)}
+            .pf-tag{font:600 10.5px -apple-system,Segoe UI,sans-serif; fill:var(--accent-fg)}
+          </style>
+          <rect width="800" height="260" class="pf-bg2"></rect>
+          <text x="24" y="34" class="pf-h2">Register an application</text>
+
+          <text x="24" y="66" class="pf-lbl2">Name</text>
+          <rect x="24" y="74" width="360" height="30" rx="5" class="pf-box2"></rect>
+          <text x="34" y="94" class="pf-val2">sso-spa</text>
+
+          <text x="24" y="128" class="pf-lbl2">Redirect URI — select a platform</text>
+
+          <rect x="24" y="140" width="150" height="46" rx="8" class="pf-box2-on"></rect>
+          <rect x="24" y="140" width="150" height="18" rx="8" fill="var(--accent)"></rect>
+          <text x="99" y="153" text-anchor="middle" class="pf-tag">✓ SELECTED</text>
+          <text x="99" y="176" text-anchor="middle" class="pf-val2">Single-page application</text>
+
+          <rect x="188" y="140" width="110" height="46" rx="8" class="pf-box2"></rect>
+          <text x="243" y="167" text-anchor="middle" class="pf-val2" fill="var(--muted-2)">Web</text>
+
+          <rect x="24" y="198" width="440" height="30" rx="5" class="pf-box2"></rect>
+          <text x="34" y="218" class="pf-val2">http://localhost:3000</text>
+        </svg>
+        <div class="mock-note">The platform choice (SPA vs Web) matters more than any other field on this form — see the warning below.</div>
+      </div>
+
+      <div class="callout danger">
+        <span class="ic">⚠️</span>
+        <div>
+          <p><b>Pick "Single-page application", not "Web."</b> This is what makes the app a public PKCE client
+          with no secret. Picking "Web" instead makes Entra expect a client secret, and sign-in fails with
+          <code class="inline">AADSTS9002326</code>. This project deliberately has no secret anywhere.</p>
+        </div>
+      </div>
+
+      <div class="table-scroll">
+      <table class="kv">
+        <tr><th>Field</th><th>Value</th></tr>
+        <tr><td>Name</td><td><code class="inline">sso-spa</code></td></tr>
+        <tr><td>Platform</td><td><b>Single-page application (SPA)</b></td></tr>
+        <tr><td>Redirect URI</td><td><code class="inline">http://localhost:3000</code> — or whatever port you plan to use, see step 6</td></tr>
+      </table>
+      </div>
+
+      <p>From its <b>Overview</b>, copy the Application (client) ID → this becomes <code class="inline">SPA_CLIENT_ID</code>.</p>
+
+      <p><b>API permissions → Add a permission → My APIs →</b> <code class="inline">sso-resource-server</code>
+      → <b>Delegated permissions</b> → check <code class="inline">Api.Access</code> → Add permissions.
+      Then <b>Grant admin consent</b> (or each user consents individually at first sign-in — also fine).</p>
+
+      <div class="check-row">
+        <input type="checkbox" id="chk-4"><label for="chk-4">SPA registered as a Single-page application, with API permission granted</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 5 -->
+  <section class="step" id="step-5" data-step="5">
+    <div class="step-head">
+      <div class="step-num">5</div>
+      <div>
+        <h2 class="step-title">Assign the app role to yourself</h2>
+        <p class="step-sub">The role exists now, but nobody holds it yet.</p>
+      </div>
+    </div>
+    <div class="step-body">
+      <p><b>Entra ID → Enterprise applications →</b> <code class="inline">sso-resource-server</code>
+      → <b>Users and groups → Add user/group</b> → pick your own account → select
+      <b>Resource Admin</b> → Assign.</p>
+
+      <div class="callout info">
+        <span class="ic">ℹ️</span>
+        <div>
+          <p>Skip this and everything still works — <code class="inline">/api/resource</code> returns 200,
+          but <code class="inline">/api/admin</code> correctly returns 403 (authenticated, not authorized).
+          That's a real acceptance criterion, not a bug, so it's fine to test that path deliberately by
+          <i>not</i> doing this step for a second account.</p>
+        </div>
+      </div>
+      <div class="callout warn">
+        <span class="ic">🔁</span>
+        <div><p>Role changes only appear in a <b>newly issued</b> token — sign out (or clear the tab's session storage) after assigning it.</p></div>
+      </div>
+
+      <div class="check-row">
+        <input type="checkbox" id="chk-5"><label for="chk-5">Role assigned (or intentionally skipped to test the 403 path)</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 6 -->
+  <section class="step" id="step-6" data-step="6">
+    <div class="step-head">
+      <div class="step-num">6</div>
+      <div>
+        <h2 class="step-title">Build your <code class="inline" style="font-size:.85em">.env</code></h2>
+        <p class="step-sub">Fill in what the portal gave you. Nothing here is sent anywhere — this all runs in your browser.</p>
+      </div>
+    </div>
+    <div class="step-body">
+
+      <div class="builder">
+        <div class="field">
+          <label for="f-tenant">TENANT_ID <span class="hint">Directory (tenant) ID, from either app's Overview</span></label>
+          <input id="f-tenant" placeholder="e.g. 11111111-2222-3333-4444-555555555555" autocomplete="off" spellcheck="false">
+          <div class="err" id="err-tenant">Looks like this should be a GUID — check you copied the Directory (tenant) ID, not a name.</div>
+        </div>
+        <div class="field">
+          <label for="f-spa">SPA_CLIENT_ID <span class="hint">sso-spa → Overview → Application (client) ID</span></label>
+          <input id="f-spa" placeholder="e.g. aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" autocomplete="off" spellcheck="false">
+          <div class="err" id="err-spa">Should look like a GUID.</div>
+        </div>
+        <div class="field">
+          <label for="f-api">API_CLIENT_ID <span class="hint">sso-resource-server → Overview → Application (client) ID</span></label>
+          <input id="f-api" placeholder="e.g. 99999999-8888-7777-6666-555555555555" autocomplete="off" spellcheck="false">
+          <div class="err" id="err-api">Should look like a GUID.</div>
+        </div>
+        <div class="field">
+          <label for="f-role">REQUIRED_ROLE <span class="hint">the app role Value from step 3</span></label>
+          <input id="f-role" value="Resource.Admin" autocomplete="off" spellcheck="false">
+        </div>
+
+        <div class="port-row">
+          <div class="field">
+            <label for="f-spaport">SPA host port <span class="hint">3000 by default</span></label>
+            <input id="f-spaport" value="3000" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label for="f-apiport">API host port <span class="hint">8080 by default</span></label>
+            <input id="f-apiport" value="8080" autocomplete="off" spellcheck="false">
+          </div>
+        </div>
+        <div class="callout info" style="margin-top:0">
+          <span class="ic">🔌</span>
+          <div><p>Only change the ports if 3000 / 8080 are already taken on your machine. If you do, the redirect URI you registered in step 4 must match the new SPA port <b>exactly</b> — update it in the portal too, or sign-in fails with <code class="inline">AADSTS50011</code>.</p></div>
+        </div>
+
+        <div class="builder-actions">
+          <button class="btn primary" type="button" id="genBtn">Generate .env</button>
+          <button class="btn" type="button" id="clearBtn">Clear fields</button>
+        </div>
+
+        <div class="env-output" id="envOutput">
+          <p class="code-label" style="margin-top:18px">Your .env — save this exact content</p>
+          <div class="code-wrap">
+            <pre id="envPre"></pre>
+            <button class="copy-btn" type="button" id="copyEnvBtn">Copy</button>
+          </div>
+
+          <div data-os-panel="mac" class="active" style="margin-top:14px">
+            <p class="code-label">bash / zsh — create the file</p>
+            <div class="code-wrap">
+              <pre id="envCmdMac"></pre>
+              <button class="copy-btn" type="button" data-copy>Copy</button>
+            </div>
+          </div>
+          <div data-os-panel="ps" style="margin-top:14px">
+            <p class="code-label">PowerShell — create the file</p>
+            <div class="code-wrap">
+              <pre id="envCmdPs"></pre>
+              <button class="copy-btn" type="button" data-copy>Copy</button>
+            </div>
+            <div class="callout info"><span class="ic">💡</span><div><p>Or simpler: <code class="inline">Copy-Item .env.example .env</code> then paste the block above into <code class="inline">notepad .env</code>.</p></div></div>
+          </div>
+          <div data-os-panel="cmd" style="margin-top:14px">
+            <p class="code-label">Command Prompt</p>
+            <div class="callout info"><span class="ic">💡</span><div><p>Run <code class="inline">copy .env.example .env</code> then <code class="inline">notepad .env</code> and paste the block above in, replacing its contents.</p></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <span class="ic">🔒</span>
+        <div><p><code class="inline">.env</code> is already in <code class="inline">.gitignore</code> — these are tenant/client identifiers, not secrets (there's no client secret anywhere in this project), but keep it out of version control regardless.</p></div>
+      </div>
+
+      <div class="check-row">
+        <input type="checkbox" id="chk-6"><label for="chk-6"><code class="inline" style="font-size:.85em">.env</code> file created in the repo root</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- STEP 7 -->
+  <section class="step" id="step-7" data-step="7">
+    <div class="step-head">
+      <div class="step-num">7</div>
+      <div>
+        <h2 class="step-title">Start the stack</h2>
+        <p class="step-sub">First build takes ~2 minutes; after that, healthy in about 11 seconds.</p>
+      </div>
+    </div>
+    <div class="step-body">
+
+      <div data-os-panel="mac" class="active">
+        <div class="code-wrap">
+          <p class="code-label">bash / zsh</p>
+          <pre><span class="cmt"># build and start both containers</span>
+<span class="kw">docker</span> compose up --build -d
+
+<span class="cmt"># open it</span>
+<span class="kw">open</span> http://localhost:3000</pre>
+          <button class="copy-btn" type="button" data-copy>Copy</button>
+        </div>
+      </div>
+
+      <div data-os-panel="ps">
+        <div class="code-wrap">
+          <p class="code-label">PowerShell</p>
+          <pre><span class="cmt"># build and start both containers</span>
+<span class="kw">docker</span> compose up --build -d
+
+<span class="cmt"># open it</span>
+<span class="kw">Start-Process</span> http://localhost:3000</pre>
+          <button class="copy-btn" type="button" data-copy>Copy</button>
+        </div>
+      </div>
+
+      <div data-os-panel="cmd">
+        <div class="code-wrap">
+          <p class="code-label">Command Prompt</p>
+          <pre><span class="cmt">REM build and start both containers</span>
+<span class="kw">docker</span> compose up --build -d
+
+<span class="cmt">REM open it</span>
+<span class="kw">start</span> http://localhost:3000</pre>
+          <button class="copy-btn" type="button" data-copy>Copy</button>
+        </div>
+      </div>
+
+      <p style="margin-top:16px">Check both containers came up healthy (identical everywhere):</p>
+      <div class="code-wrap">
+        <pre><span class="kw">docker</span> compose ps</pre>
+        <button class="copy-btn" type="button" data-copy>Copy</button>
+      </div>
+      <p>Both rows should read <code class="inline">(healthy)</code>. If your ports differ from 3000/8080, open
+      <code class="inline">http://localhost:&lt;your SPA port&gt;</code> instead.</p>
+
+      <div class="callout ok">
+        <span class="ic">✅</span>
+        <div>
+          <p><b>What you should see:</b> a "Sign in with Microsoft" button. Click it, sign in, and you'll land back
+          on the page signed in — with buttons to exercise valid/missing/tampered tokens and the role-gated endpoint,
+          each mapped to one of the spec's acceptance criteria.</p>
+        </div>
+      </div>
+
+      <p>Useful commands, identical on every OS:</p>
+      <div class="code-wrap">
+        <pre><span class="kw">docker</span> compose logs -f      <span class="cmt"># live request logs</span>
+<span class="kw">docker</span> compose down         <span class="cmt"># stop everything</span></pre>
+        <button class="copy-btn" type="button" data-copy>Copy</button>
+      </div>
+
+      <div class="check-row">
+        <input type="checkbox" id="chk-7"><label for="chk-7">Both containers report healthy and I can sign in at localhost</label>
+      </div>
+    </div>
+  </section>
+
+  <!-- TROUBLESHOOTING -->
+  <section id="trouble" style="margin-top:36px">
+    <h2 style="font-size:1.15rem">Troubleshooting</h2>
+
+    <details class="trouble">
+      <summary>Redirect URI mismatch <span class="trouble-code">AADSTS50011</span></summary>
+      <div class="trouble-body">
+        <p>The redirect URI registered on the SPA app in Entra must match your running URL <b>exactly</b>,
+        including the port. If you changed the SPA host port in step 6, go back to the SPA app registration's
+        <b>Authentication</b> blade and update (or add) the matching redirect URI.</p>
+      </div>
+    </details>
+
+    <details class="trouble">
+      <summary>Cross-origin token redemption <span class="trouble-code">AADSTS9002326</span></summary>
+      <div class="trouble-body">
+        <p>The SPA was registered under the <b>Web</b> platform instead of <b>Single-page application</b>.
+        Go to the SPA app registration → <b>Authentication</b> → remove the Web platform entry, then
+        <b>Add a platform → Single-page application</b> and re-add the redirect URI.</p>
+      </div>
+    </details>
+
+    <details class="trouble">
+      <summary>MFA required <span class="trouble-code">AADSTS50076</span></summary>
+      <div class="trouble-body">
+        <p>Your tenant requires multi-factor authentication. This surfaces most often when scripting
+        against the tenant (e.g. the Azure CLI); signing in through a normal browser tab handles MFA
+        interactively without issue.</p>
+      </div>
+    </details>
+
+    <details class="trouble">
+      <summary>Role-gated endpoint returns 403 even after assigning the role</summary>
+      <div class="trouble-body">
+        <p>Role assignment only affects <b>newly issued</b> tokens. Sign out of the app (or clear the
+        tab's session storage) and sign back in to force Entra to mint a fresh token carrying the role.</p>
+      </div>
+    </details>
+
+    <details class="trouble">
+      <summary>"insufficient privileges" when trying to register an app</summary>
+      <div class="trouble-body">
+        <p>Some tenants block non-admin users from creating app registrations. Ask a tenant admin to either
+        enable <b>Users can register applications</b> (Entra ID → Users → User settings), or grant you the
+        narrower <b>Application Developer</b> directory role — both unblock this without other changes.</p>
+      </div>
+    </details>
+
+    <details class="trouble">
+      <summary>Port already in use</summary>
+      <div class="trouble-body">
+        <p>Something else on your machine is already listening on 3000 or 8080. Set
+        <code class="inline">SPA_HOST_PORT</code> / <code class="inline">API_HOST_PORT</code> to unused ports
+        in the builder above, regenerate <code class="inline">.env</code>, and update the SPA's redirect URI
+        in the portal to match the new SPA port.</p>
+      </div>
+    </details>
+
+    <details class="trouble">
+      <summary><code class="inline" style="font-size:.85em">docker compose up</code> fails immediately with a missing-variable error</summary>
+      <div class="trouble-body">
+        <p>The compose file requires <code class="inline">TENANT_ID</code>, <code class="inline">SPA_CLIENT_ID</code>,
+        <code class="inline">API_CLIENT_ID</code>, and <code class="inline">API_SCOPE</code> to be set — it refuses
+        to start with placeholders left blank. Re-check your <code class="inline">.env</code> was saved in the
+        repo root (same folder as <code class="inline">docker-compose.yml</code>), not somewhere else.</p>
+      </div>
+    </details>
+  </section>
+
+  <div class="finish" id="finishCard" style="display:none">
+    <h2>🎉 You're running the stack locally</h2>
+    <p>Every step is checked off. Head to your running SPA and try each button — they map directly onto the
+    project's acceptance criteria.</p>
+  </div>
+
+  <footer class="page">
+    Generated setup guide for the local OAuth2/PKCE SSO stack. No values on this page are tied to any specific tenant —
+    everything is either typed in by you or produced from your own inputs, in your browser.
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------- OS toggle ---------------- */
+  var osButtons = document.querySelectorAll('.os-toggle button');
+  var STORAGE_OS = 'sso-setup-os';
+  function setOS(os){
+    osButtons.forEach(function(b){ b.setAttribute('aria-pressed', b.dataset.os === os ? 'true' : 'false'); });
+    document.querySelectorAll('[data-os-panel]').forEach(function(p){
+      p.classList.toggle('active', p.getAttribute('data-os-panel') === os);
+    });
+    try { localStorage.setItem(STORAGE_OS, os); } catch(e){}
+  }
+  osButtons.forEach(function(b){
+    b.addEventListener('click', function(){ setOS(b.dataset.os); });
+  });
+  var savedOS = null;
+  try { savedOS = localStorage.getItem(STORAGE_OS); } catch(e){}
+  if (savedOS && ['mac','ps','cmd'].indexOf(savedOS) !== -1) { setOS(savedOS); }
+  else {
+    // best-effort default based on platform
+    var isWin = /Win/.test(navigator.platform || navigator.userAgent || '');
+    setOS(isWin ? 'ps' : 'mac');
+  }
+
+  /* ---------------- copy buttons ---------------- */
+  function textOf(pre){ return pre.innerText || pre.textContent || ''; }
+  document.querySelectorAll('.copy-btn[data-copy]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var pre = btn.parentElement.querySelector('pre');
+      var text = textOf(pre);
+      doCopy(text, btn);
+    });
+  });
+  function doCopy(text, btn){
+    function done(ok){
+      var orig = btn.textContent;
+      btn.textContent = ok ? 'Copied ✓' : 'Select + copy';
+      btn.classList.toggle('copied', ok);
+      setTimeout(function(){ btn.textContent = orig; btn.classList.remove('copied'); }, 1600);
+    }
+    if (navigator.clipboard && window.isSecureContext !== false) {
+      navigator.clipboard.writeText(text).then(function(){ done(true); }, function(){ fallbackCopy(text, done); });
+    } else {
+      fallbackCopy(text, done);
+    }
+  }
+  function fallbackCopy(text, cb){
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      cb(ok);
+    } catch(e){ cb(false); }
+  }
+
+  /* ---------------- progress tracking ---------------- */
+  var STORAGE_PROGRESS = 'sso-setup-progress';
+  var checkboxes = Array.prototype.slice.call(document.querySelectorAll('.step input[type="checkbox"]'));
+  var progressFill = document.getElementById('progressFill');
+  var progressLabel = document.getElementById('progressLabel');
+  var finishCard = document.getElementById('finishCard');
+
+  function loadProgress(){
+    var saved = {};
+    try { saved = JSON.parse(localStorage.getItem(STORAGE_PROGRESS) || '{}'); } catch(e){}
+    checkboxes.forEach(function(cb){ if (saved[cb.id]) cb.checked = true; });
+    updateUI();
+  }
+  function saveProgress(){
+    var state = {};
+    checkboxes.forEach(function(cb){ state[cb.id] = cb.checked; });
+    try { localStorage.setItem(STORAGE_PROGRESS, JSON.stringify(state)); } catch(e){}
+  }
+  function updateUI(){
+    var done = checkboxes.filter(function(cb){ return cb.checked; }).length;
+    var total = checkboxes.length;
+    progressFill.style.width = (total ? (done/total*100) : 0) + '%';
+    progressLabel.textContent = done + ' / ' + total + ' done';
+    checkboxes.forEach(function(cb){
+      var step = cb.closest('.step');
+      if (!step) return;
+      step.classList.toggle('done', cb.checked);
+    });
+    finishCard.style.display = (done === total && total > 0) ? 'block' : 'none';
+  }
+  checkboxes.forEach(function(cb){
+    cb.addEventListener('change', function(){ saveProgress(); updateUI(); });
+  });
+  loadProgress();
+
+  /* ---------------- .env builder ---------------- */
+  var guidLike = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
+  var fTenant = document.getElementById('f-tenant');
+  var fSpa = document.getElementById('f-spa');
+  var fApi = document.getElementById('f-api');
+  var fRole = document.getElementById('f-role');
+  var fSpaPort = document.getElementById('f-spaport');
+  var fApiPort = document.getElementById('f-apiport');
+
+  function validateGuidField(input, errEl){
+    var v = input.value.trim();
+    var bad = v.length > 0 && !guidLike.test(v);
+    input.classList.toggle('invalid', bad);
+    if (errEl) errEl.classList.toggle('show', bad);
+    return v.length > 0 && !bad;
+  }
+
+  function escapeHtml(s){
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  document.getElementById('genBtn').addEventListener('click', function(){
+    var tenantOk = validateGuidField(fTenant, document.getElementById('err-tenant'));
+    var spaOk = validateGuidField(fSpa, document.getElementById('err-spa'));
+    var apiOk = validateGuidField(fApi, document.getElementById('err-api'));
+
+    if (!tenantOk || !spaOk || !apiOk) {
+      var out = document.getElementById('envOutput');
+      out.classList.remove('show');
+      return;
+    }
+
+    var tenant = fTenant.value.trim();
+    var spa = fSpa.value.trim();
+    var api = fApi.value.trim();
+    var role = (fRole.value.trim() || 'Resource.Admin');
+    var spaPort = (fSpaPort.value.trim() || '3000');
+    var apiPort = (fApiPort.value.trim() || '8080');
+    var nonDefaultPorts = (spaPort !== '3000' || apiPort !== '8080');
+
+    var lines = [
+      'TENANT_ID=' + tenant,
+      'SPA_CLIENT_ID=' + spa,
+      'API_CLIENT_ID=' + api,
+      'API_SCOPE=api://' + api + '/Api.Access',
+      'REQUIRED_ROLE=' + role,
+      '',
+      'SPA_REDIRECT_URI=http://localhost:' + spaPort,
+      'API_BASE_URL=http://localhost:' + apiPort,
+      'CORS_ALLOWED_ORIGINS=http://localhost:' + spaPort,
+    ];
+    if (nonDefaultPorts) {
+      lines.push('');
+      lines.push('SPA_HOST_PORT=' + spaPort);
+      lines.push('API_HOST_PORT=' + apiPort);
+    }
+    var envText = lines.join('\n') + '\n';
+
+    document.getElementById('envPre').textContent = envText;
+
+    // macOS/Linux heredoc command
+    document.getElementById('envCmdMac').textContent =
+      'cat > .env << \'EOF\'\n' + envText + 'EOF';
+
+    // PowerShell here-string command
+    document.getElementById('envCmdPs').textContent =
+      '@\'\n' + envText + '\'@ | Set-Content -Path .env -Encoding utf8';
+
+    document.getElementById('envOutput').classList.add('show');
+    if (nonDefaultPorts) {
+      // remind about matching redirect URI when ports are non-default
+    }
+  });
+
+  document.getElementById('copyEnvBtn').addEventListener('click', function(){
+    var text = document.getElementById('envPre').textContent;
+    doCopy(text, this);
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', function(){
+    [fTenant, fSpa, fApi].forEach(function(el){ el.value=''; el.classList.remove('invalid'); });
+    fRole.value = 'Resource.Admin';
+    fSpaPort.value = '3000';
+    fApiPort.value = '8080';
+    document.querySelectorAll('.field .err').forEach(function(e){ e.classList.remove('show'); });
+    document.getElementById('envOutput').classList.remove('show');
+  });
+
+  [fTenant, fSpa, fApi].forEach(function(el){
+    el.addEventListener('input', function(){
+      el.classList.remove('invalid');
+    });
+  });
+})();
+</script>
+
+</body>
+</html>
