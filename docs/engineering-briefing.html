@@ -1,0 +1,932 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entractive SSO Engineering Briefing</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400&family=JetBrains+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@500;600;700&display=swap">
+<style>
+  /* ============================= TOKENS ============================= */
+  :root{
+    --ink:#171a1e; --ink-dim:#4a5059; --ink-faint:#868d98;
+    --paper:#f6f5f1; --surface:#ffffff; --surface-2:#edece6; --surface-3:#e2e0d8;
+    --border:#d8d6cc; --border-strong:#b8b6aa;
+    --accent:#2f8f8a; --accent-ink:#e4f3f1; --accent-deep:#1d6460; --accent-text:#1a6a65;
+    --ok:#2e7d5b; --ok-bg:#e5f3ec;
+    --warn:#9a6400; --warn-bg:#faf0dc;
+    --err:#b23b3b; --err-bg:#fbeaea;
+    --code-bg:#14181c; --code-fg:#dfe4e8; --code-dim:#7a8390; --code-accent:#6fc9c2; --code-str:#c7d9a0; --code-punct:#8893a0;
+    --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
+    --mono:'JetBrains Mono',ui-monospace,'SF Mono',Consolas,monospace;
+    --label:'IBM Plex Sans Condensed','Arial Narrow',sans-serif;
+    --shadow: 0 1px 2px rgba(23,26,30,.04), 0 8px 24px rgba(23,26,30,.06);
+    --radius: 10px;
+    --rail-w: 268px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:#e7e5de; --ink-dim:#aaadb3; --ink-faint:#71757d;
+      --paper:#111317; --surface:#17191e; --surface-2:#1d2026; --surface-3:#262a32;
+      --border:#2b2f37; --border-strong:#3a3f49;
+      --accent:#5ec9c2; --accent-ink:#17302e; --accent-deep:#8adbd5; --accent-text:#7fd6cf;
+      --ok:#5bbf8f; --ok-bg:#132620;
+      --warn:#e0ab4c; --warn-bg:#2b2210;
+      --err:#e38080; --err-bg:#2d1818;
+      --code-bg:#0a0c0f; --code-fg:#dfe4e8; --code-dim:#5c636d; --code-accent:#6fc9c2; --code-str:#b8cb8f; --code-punct:#6b7480;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 32px rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#e7e5de; --ink-dim:#aaadb3; --ink-faint:#71757d;
+    --paper:#111317; --surface:#17191e; --surface-2:#1d2026; --surface-3:#262a32;
+    --border:#2b2f37; --border-strong:#3a3f49;
+    --accent:#5ec9c2; --accent-ink:#17302e; --accent-deep:#8adbd5; --accent-text:#7fd6cf;
+    --ok:#5bbf8f; --ok-bg:#132620;
+    --warn:#e0ab4c; --warn-bg:#2b2210;
+    --err:#e38080; --err-bg:#2d1818;
+    --code-bg:#0a0c0f; --code-fg:#dfe4e8; --code-dim:#5c636d; --code-accent:#6fc9c2; --code-str:#b8cb8f; --code-punct:#6b7480;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 32px rgba(0,0,0,.45);
+  }
+
+  /* ============================= RESET / BASE ============================= */
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:var(--serif); font-size:16px; line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--accent); color:var(--accent-ink)}
+  a{color:var(--accent-text)}
+  code, pre, kbd{font-family:var(--mono)}
+
+  h1,h2,h3,h4{font-family:var(--label); text-wrap:balance; color:var(--ink); line-height:1.25}
+  p{margin:0 0 1em; max-width:66ch}
+  .measure{max-width:66ch}
+
+  /* ============================= SKIP LINK ============================= */
+  .skip-link{
+    position:absolute; left:-999px; top:0; background:var(--accent); color:var(--accent-ink);
+    padding:10px 16px; z-index:200; border-radius:0 0 8px 0; font-family:var(--label); font-weight:600;
+  }
+  .skip-link:focus{left:0}
+
+  /* ============================= SHELL / RAIL ============================= */
+  .shell{display:flex; min-height:100vh}
+  .rail{
+    width:var(--rail-w); flex:none; position:sticky; top:0; align-self:flex-start;
+    height:100vh; overflow-y:auto; border-right:1px solid var(--border);
+    background:var(--surface); padding:22px 0 40px;
+  }
+  .rail-brand{padding:0 20px 18px; border-bottom:1px solid var(--border); margin-bottom:14px}
+  .rail-brand .mark{
+    display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px;
+    border-radius:8px; background:var(--accent); color:var(--accent-ink); font-family:var(--label);
+    font-weight:700; font-size:14px; margin-bottom:10px;
+  }
+  .rail-brand h1{font-size:15px; margin:0 0 3px; letter-spacing:-.01em}
+  .rail-brand .sub{font-family:var(--mono); font-size:11px; color:var(--ink-faint)}
+
+  .rail nav{padding:0 10px}
+  .rail-group{margin-bottom:4px}
+  .rail-group-title{
+    font-family:var(--label); font-size:10.5px; font-weight:600; text-transform:uppercase;
+    letter-spacing:.08em; color:var(--ink-faint); padding:14px 10px 6px;
+  }
+  .rail a{
+    display:block; padding:6px 10px; border-radius:6px; font-size:13px; color:var(--ink-dim);
+    text-decoration:none; line-height:1.4; font-family:var(--label); font-weight:500;
+  }
+  .rail a:hover{background:var(--surface-2); color:var(--ink)}
+  .rail a.active{background:var(--accent-ink); color:var(--accent-text); font-weight:600}
+  .rail a .n{font-family:var(--mono); color:var(--ink-faint); margin-right:6px; font-size:11px}
+  .rail a.active .n{color:var(--accent-text)}
+
+  .rail-footer{padding:16px 20px 0; margin-top:10px; border-top:1px solid var(--border)}
+  .rail-footer p{font-size:11.5px; color:var(--ink-faint); font-family:var(--label); margin:0}
+
+  .railtoggle{display:none}
+
+  main{flex:1; min-width:0; padding:48px 56px 140px; max-width:980px}
+
+  /* ============================= HEADER BLOCK ============================= */
+  .doc-head{margin-bottom:52px; padding-bottom:32px; border-bottom:2px solid var(--ink)}
+  .doc-head .eyebrow{
+    font-family:var(--label); font-size:12px; font-weight:600; text-transform:uppercase;
+    letter-spacing:.1em; color:var(--accent-text); margin:0 0 14px;
+  }
+  .doc-head h1{font-size:2.5rem; line-height:1.08; margin:0 0 16px; letter-spacing:-.015em}
+  .doc-head .dek{font-size:1.15rem; color:var(--ink-dim); font-weight:400; max-width:60ch; margin:0 0 22px}
+  .doc-meta{display:flex; flex-wrap:wrap; gap:10px 22px; font-family:var(--mono); font-size:12.5px; color:var(--ink-faint)}
+  .doc-meta b{color:var(--ink-dim); font-weight:600}
+
+  /* ============================= SECTIONS ============================= */
+  section{margin-bottom:60px; scroll-margin-top:24px}
+  .sec-head{display:flex; align-items:baseline; gap:14px; margin-bottom:20px}
+  .sec-num{
+    font-family:var(--mono); font-size:13px; font-weight:600; color:var(--accent-text);
+    background:var(--accent-ink); border-radius:6px; padding:3px 9px; flex:none;
+  }
+  h2{font-size:1.55rem; margin:0; letter-spacing:-.01em}
+  h3{font-size:1.15rem; margin:30px 0 12px}
+  h4{font-family:var(--mono); font-size:13px; font-weight:600; color:var(--ink-dim); margin:20px 0 8px; text-transform:uppercase; letter-spacing:.04em}
+
+  .lede{font-size:1.05rem; color:var(--ink-dim); max-width:66ch}
+
+  /* ============================= CALLOUTS ============================= */
+  .callout{
+    display:flex; gap:13px; padding:15px 17px; border-radius:var(--radius); margin:20px 0;
+    font-size:14.5px; line-height:1.6; max-width:68ch;
+  }
+  .callout .ic{flex:none; font-family:var(--mono); font-size:11px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.04em; padding:2px 7px; border-radius:4px; height:fit-content; margin-top:2px}
+  .callout.info{background:var(--surface-2); border:1px solid var(--border)}
+  .callout.info .ic{background:var(--surface-3); color:var(--ink-dim)}
+  .callout.warn{background:var(--warn-bg); border:1px solid color-mix(in srgb, var(--warn) 30%, transparent)}
+  .callout.warn .ic{background:var(--warn); color:var(--warn-bg)}
+  .callout.danger{background:var(--err-bg); border:1px solid color-mix(in srgb, var(--err) 30%, transparent)}
+  .callout.danger .ic{background:var(--err); color:var(--err-bg)}
+  .callout.ok{background:var(--ok-bg); border:1px solid color-mix(in srgb, var(--ok) 30%, transparent)}
+  .callout.ok .ic{background:var(--ok); color:var(--ok-bg)}
+  .callout p{margin:0 0 6px; max-width:none}
+  .callout p:last-child{margin-bottom:0}
+  .callout code{background:var(--surface); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:.9em}
+
+  /* ============================= CODE ============================= */
+  .code-block{margin:16px 0; max-width:min(100%, 74ch)}
+  .code-label{
+    font-family:var(--label); font-size:10.5px; font-weight:600; text-transform:uppercase;
+    letter-spacing:.07em; color:var(--ink-faint); margin:0 0 7px;
+  }
+  pre{
+    margin:0; background:var(--code-bg); color:var(--code-fg); border-radius:9px;
+    padding:15px 18px; overflow-x:auto; font-size:13px; line-height:1.6; border:1px solid var(--border-strong);
+  }
+  pre .c{color:var(--code-dim); font-style:italic}
+  pre .k{color:var(--code-accent)}
+  pre .s{color:var(--code-str)}
+  pre .p{color:var(--code-punct)}
+  code.inline{
+    background:var(--surface-2); border:1px solid var(--border); border-radius:4px;
+    padding:1.5px 6px; font-size:.88em; color:var(--ink);
+    overflow-wrap:anywhere;
+  }
+
+  /* ============================= TABLES ============================= */
+  .table-scroll{overflow-x:auto; margin:18px 0; max-width:100%}
+  table{width:100%; min-width:460px; border-collapse:collapse; font-size:14px}
+  table caption{text-align:left; font-family:var(--label); font-size:11px; font-weight:600; text-transform:uppercase;
+    letter-spacing:.06em; color:var(--ink-faint); margin-bottom:8px}
+  th, td{text-align:left; padding:9px 14px; border-bottom:1px solid var(--border); vertical-align:top}
+  th{font-family:var(--label); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-faint);
+     background:var(--surface-2)}
+  tbody tr:hover{background:var(--surface-2)}
+  td code.inline{white-space:nowrap}
+  .num{font-variant-numeric:tabular-nums; font-family:var(--mono)}
+
+  /* ============================= STATUS CHIPS ============================= */
+  .chip{
+    display:inline-flex; align-items:center; gap:5px; font-family:var(--mono); font-size:11.5px; font-weight:700;
+    padding:2px 9px; border-radius:20px; white-space:nowrap;
+  }
+  .chip.ok{background:var(--ok-bg); color:var(--ok)}
+  .chip.warn{background:var(--warn-bg); color:var(--warn)}
+  .chip.err{background:var(--err-bg); color:var(--err)}
+  .chip.neutral{background:var(--surface-3); color:var(--ink-dim)}
+
+  /* ============================= DIAGRAM ============================= */
+  .diagram-wrap{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:24px; margin:22px 0; box-shadow:var(--shadow); overflow-x:auto;
+  }
+  .diagram-wrap svg{display:block; margin:0 auto; max-width:100%; height:auto}
+  .diagram-cap{font-size:13px; color:var(--ink-faint); margin:14px 0 0; text-align:center}
+
+  /* ============================= TRACE / EXCHANGE CARDS ============================= */
+  .trace{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    margin:18px 0; overflow:hidden; box-shadow:var(--shadow);
+  }
+  .trace-head{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:11px 16px;
+    background:var(--surface-2); border-bottom:1px solid var(--border); font-family:var(--mono); font-size:12.5px;
+  }
+  .trace-head .path{color:var(--ink-faint); margin-left:auto}
+  .trace-body{padding:4px 0}
+  .trace-row{padding:12px 16px; border-bottom:1px solid var(--border)}
+  .trace-row:last-child{border-bottom:none}
+  .trace-row .rl{font-family:var(--label); font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-faint); margin-bottom:6px}
+
+  /* ============================= DEFECT CARDS ============================= */
+  .defect{
+    border:1px solid var(--border); border-left:3px solid var(--err); border-radius:0 var(--radius) var(--radius) 0;
+    background:var(--surface); padding:16px 18px; margin:14px 0;
+  }
+  .defect .dtitle{font-family:var(--label); font-weight:600; font-size:14.5px; margin:0 0 6px; color:var(--ink)}
+  .defect p{font-size:14px; margin:0 0 8px; max-width:70ch}
+  .defect .fix{color:var(--ok); font-weight:600}
+
+  /* ============================= REFERENCE GRID (CLI flags etc) ============================= */
+  .ref-list{display:flex; flex-direction:column; gap:0; border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin:16px 0}
+  .ref-item{display:grid; grid-template-columns: 220px 1fr; gap:16px; padding:13px 16px; border-bottom:1px solid var(--border); background:var(--surface)}
+  .ref-item:last-child{border-bottom:none}
+  .ref-item:nth-child(even){background:var(--surface-2)}
+  .ref-item .k{font-family:var(--mono); font-size:13px; color:var(--accent-text); font-weight:600; word-break:break-word}
+  .ref-item .v{font-size:14px; color:var(--ink-dim)}
+  @media (max-width:640px){.ref-item{grid-template-columns:1fr}}
+
+  /* ============================= TOC LINKS IN BODY ============================= */
+  .jump-grid{display:grid; grid-template-columns:repeat(auto-fit, minmax(210px,1fr)); gap:10px; margin:22px 0}
+  .jump-card{
+    display:block; padding:14px 16px; border:1px solid var(--border); border-radius:9px; background:var(--surface);
+    text-decoration:none; transition:border-color .15s;
+  }
+  .jump-card:hover{border-color:var(--accent)}
+  .jump-card .jn{font-family:var(--mono); font-size:11px; color:var(--accent-text); font-weight:700}
+  .jump-card .jt{display:block; font-family:var(--label); font-weight:600; color:var(--ink); font-size:14px; margin-top:4px}
+  .jump-card .jd{display:block; font-size:12.5px; color:var(--ink-faint); margin-top:3px}
+
+  hr.rule{border:0; border-top:1px solid var(--border); margin:36px 0}
+
+  footer.doc{margin-top:70px; padding-top:24px; border-top:1px solid var(--border); font-size:12.5px; color:var(--ink-faint); font-family:var(--label)}
+
+  @media (max-width: 920px){
+    .rail{position:fixed; left:0; top:0; z-index:100; transform:translateX(-100%); transition:transform .2s ease; box-shadow:var(--shadow)}
+    .rail.open{transform:translateX(0)}
+    .railtoggle{
+      display:flex; position:fixed; top:14px; left:14px; z-index:110; align-items:center; gap:8px;
+      background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:9px 13px;
+      font-family:var(--label); font-weight:600; font-size:13px; box-shadow:var(--shadow); cursor:pointer; color:var(--ink);
+    }
+    main{padding:88px 20px 100px; max-width:100%}
+    .doc-head h1{font-size:1.9rem}
+    .ref-item{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<a href="#main" class="skip-link">Skip to content</a>
+
+<button class="railtoggle" id="railToggle" type="button" aria-expanded="false" aria-controls="rail">☰ Contents</button>
+
+<div class="shell">
+  <aside class="rail" id="rail">
+    <div class="rail-brand">
+      <div class="mark">E</div>
+      <h1>Entractive SSO</h1>
+      <div class="sub">Engineering briefing · v1</div>
+    </div>
+    <nav id="tocNav">
+      <div class="rail-group">
+        <div class="rail-group-title">Orientation</div>
+        <a href="#sec-overview"><span class="n">0</span>What this is</a>
+      </div>
+      <div class="rail-group">
+        <div class="rail-group-title">Architecture</div>
+        <a href="#sec-topology"><span class="n">1</span>System topology</a>
+        <a href="#sec-pkce"><span class="n">2</span>The PKCE flow</a>
+        <a href="#sec-validation"><span class="n">3</span>Token validation</a>
+        <a href="#sec-authz"><span class="n">4</span>401 vs 403</a>
+      </div>
+      <div class="rail-group">
+        <div class="rail-group-title">Tenant setup</div>
+        <a href="#sec-cli"><span class="n">5</span>CLI bootstrap</a>
+        <a href="#sec-cli-ref"><span class="n">6</span>CLI command reference</a>
+        <a href="#sec-portal"><span class="n">7</span>Manual (portal) path</a>
+      </div>
+      <div class="rail-group">
+        <div class="rail-group-title">Running it</div>
+        <a href="#sec-run"><span class="n">8</span>Bring the stack up</a>
+        <a href="#sec-env"><span class="n">9</span>Environment reference</a>
+        <a href="#sec-tests"><span class="n">10</span>Test suite</a>
+      </div>
+      <div class="rail-group">
+        <div class="rail-group-title">Operating it</div>
+        <a href="#sec-errors"><span class="n">11</span>Error reference</a>
+        <a href="#sec-defects"><span class="n">12</span>Known defects &amp; fixes</a>
+        <a href="#sec-design"><span class="n">13</span>Design decisions</a>
+        <a href="#sec-notverified"><span class="n">14</span>What's not verified</a>
+      </div>
+    </nav>
+    <div class="rail-footer">
+      <p>Self-contained document. No external dependencies load at read time except web fonts.</p>
+    </div>
+  </aside>
+
+  <main id="main">
+
+    <header class="doc-head">
+      <p class="eyebrow">Technical briefing · local OAuth2/PKCE SSO stack</p>
+      <h1>How this system works, and how to stand it up</h1>
+      <p class="dek">A React SPA, Microsoft Entra ID, and a Spring Boot resource server, wired for the Authorization Code flow with PKCE and run entirely on Docker Desktop. This document is written to be read without further context — architecture, the actual CLI commands, and the behaviors you should expect, including the ones that look like bugs but aren't.</p>
+      <div class="doc-meta">
+        <span><b>Repo</b> github.com/&lt;owner&gt;/entractive</span>
+        <span><b>Stack</b> React + MSAL · Spring Boot 3.3 · Entra ID</span>
+        <span><b>Local ports</b> 3000 (SPA) · 8080 (API)</span>
+        <span><b>Tests</b> 14, offline</span>
+      </div>
+    </header>
+
+    <!-- ============================================================ 0 ============================================================ -->
+    <section id="sec-overview">
+      <div class="sec-head"><span class="sec-num">0</span><h2>What this is</h2></div>
+      <p class="lede">A fully local OAuth2 Authorization Code + PKCE reference implementation. Two containers — a React single-page app and a Spring Boot API — talk to each other over <code class="inline">localhost</code>, with Microsoft Entra ID as the only piece that isn't containerized. There is no client secret anywhere in this system; that is the point of PKCE, not an oversight.</p>
+
+      <p>Read this top to bottom once if you're setting the system up for the first time. After that, use the left rail — every section stands alone as a reference.</p>
+
+      <div class="jump-grid">
+        <a class="jump-card" href="#sec-topology"><span class="jn">§1</span><span class="jt">Topology</span><span class="jd">What talks to what, and over which protocol</span></a>
+        <a class="jump-card" href="#sec-cli"><span class="jn">§5</span><span class="jt">Fastest path to running</span><span class="jd">One script, your tenant, a working .env</span></a>
+        <a class="jump-card" href="#sec-errors"><span class="jn">§11</span><span class="jt">Something's broken</span><span class="jd">Decoded AADSTS codes and HTTP statuses</span></a>
+        <a class="jump-card" href="#sec-notverified"><span class="jn">§14</span><span class="jt">What to double-check</span><span class="jd">Claims made here that weren't independently re-verified by you</span></a>
+      </div>
+    </section>
+
+    <!-- ============================================================ 1 ============================================================ -->
+    <section id="sec-topology">
+      <div class="sec-head"><span class="sec-num">1</span><h2>System topology</h2></div>
+      <p>Three parties, two of which are containers you run and one of which is a cloud identity provider you do not control and cannot emulate locally.</p>
+
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 900 310" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Browser talks to spa container on port 3000, spa redirects to Entra ID in the cloud for sign-in, browser then sends bearer tokens to resource-server container on port 8080">
+          <defs>
+            <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-faint)"></path>
+            </marker>
+          </defs>
+          <style>
+            .box{fill:var(--surface); stroke:var(--border-strong); stroke-width:1.5}
+            .cloudbox{fill:var(--accent-ink); stroke:var(--accent); stroke-width:1.5; stroke-dasharray:5 3}
+            .lbl{font:700 14px 'IBM Plex Sans Condensed',sans-serif; fill:var(--ink)}
+            .sub{font:12px 'JetBrains Mono',monospace; fill:var(--ink-faint)}
+            .edge{fill:none; stroke:var(--ink-faint); stroke-width:1.6; marker-end:url(#arr)}
+            .edgelbl{font:11px 'JetBrains Mono',monospace; fill:var(--ink-dim)}
+            .edgelbl-bg{fill:var(--paper)}
+          </style>
+
+          <rect x="20" y="130" width="140" height="64" rx="10" class="box"></rect>
+          <text x="90" y="156" text-anchor="middle" class="lbl">Browser</text>
+          <text x="90" y="174" text-anchor="middle" class="sub">you</text>
+
+          <rect x="240" y="130" width="170" height="64" rx="10" class="box"></rect>
+          <text x="325" y="156" text-anchor="middle" class="lbl">spa (nginx)</text>
+          <text x="325" y="174" text-anchor="middle" class="sub">:3000 → container</text>
+
+          <rect x="500" y="130" width="200" height="64" rx="10" class="box"></rect>
+          <text x="600" y="156" text-anchor="middle" class="lbl">resource-server</text>
+          <text x="600" y="174" text-anchor="middle" class="sub">:8080 → container</text>
+
+          <rect x="690" y="18" width="190" height="70" rx="10" class="cloudbox"></rect>
+          <text x="785" y="46" text-anchor="middle" class="lbl">Microsoft Entra ID</text>
+          <text x="785" y="64" text-anchor="middle" class="sub">your tenant · cloud</text>
+          <text x="785" y="78" text-anchor="middle" class="sub" style="fill:var(--accent-text)">NOT containerized</text>
+
+          <path class="edge" d="M160,154 L238,154"></path>
+          <text x="199" y="144" text-anchor="middle" class="edgelbl">GET /</text>
+
+          <path class="edge" d="M410,154 L498,154"></path>
+          <text x="454" y="144" text-anchor="middle" class="edgelbl">Bearer JWT</text>
+
+          <path class="edge" d="M90,130 C 90,-10 700,-30 760,16"></path>
+          <text x="420" y="-2" text-anchor="middle" class="edgelbl">sign-in redirect (browser navigates)</text>
+
+          <path class="edge" d="M785,88 C 785,160 500,170 412,160"></path>
+          <text x="610" y="206" text-anchor="middle" class="edgelbl">code → token exchange (XHR, PKCE)</text>
+
+          <rect x="30" y="230" width="840" height="60" rx="8" fill="var(--surface-2)" stroke="var(--border)"></rect>
+          <text x="450" y="254" text-anchor="middle" class="sub" style="font-size:12px">resource-server validates the JWT against Entra ID's published public keys —</text>
+          <text x="450" y="272" text-anchor="middle" class="sub" style="font-size:12px">cached at startup, no network call per request (stateless validation)</text>
+        </svg>
+        <p class="diagram-cap">Entra ID is a hard dependency for sign-in — it cannot be run offline, mocked in Docker, or substituted. Everything downstream of a successfully issued token works offline.</p>
+      </div>
+
+      <h3>The three identities in play</h3>
+      <div class="ref-list">
+        <div class="ref-item"><div class="k">sso-spa</div><div class="v">Public client (no secret). Registered under Entra's <b>Single-page application</b> redirect platform specifically — this is what makes PKCE possible instead of a client-secret flow.</div></div>
+        <div class="ref-item"><div class="k">sso-resource-server</div><div class="v">The API. Exposes one OAuth2 scope (<code class="inline">Api.Access</code>) and one app role (<code class="inline">Resource.Admin</code>). Tokens are minted <em>for</em> this identity — its client ID is the expected <code class="inline">aud</code> claim.</div></div>
+        <div class="ref-item"><div class="k">Tenant</div><div class="v">The Entra ID directory both app registrations and the signed-in user belong to. One GUID (<code class="inline">TENANT_ID</code>) identifies it everywhere.</div></div>
+      </div>
+    </section>
+
+    <!-- ============================================================ 2 ============================================================ -->
+    <section id="sec-pkce">
+      <div class="sec-head"><span class="sec-num">2</span><h2>The PKCE flow</h2></div>
+      <p>PKCE (Proof Key for Code Exchange, RFC 7636) exists because a browser-based app cannot keep a secret — anyone can read the SPA's bundle. Instead of authenticating with a stored secret, the SPA proves it is the <em>same client</em> that started the flow.</p>
+
+      <div class="table-scroll">
+        <table>
+          <caption>Sequence, in order</caption>
+          <thead><tr><th class="num">#</th><th>Step</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td class="num">1</td><td>Challenge generated</td><td>SPA creates a random <code class="inline">code_verifier</code>, hashes it (SHA-256) → <code class="inline">code_challenge</code></td></tr>
+            <tr><td class="num">2</td><td>Redirect to Entra ID</td><td>Browser navigates to Entra's <code class="inline">/authorize</code> endpoint carrying the <em>challenge</em> only — the verifier never leaves the browser at this point</td></tr>
+            <tr><td class="num">3</td><td>User authenticates</td><td>Password + MFA, handled entirely by Microsoft — this app never sees credentials</td></tr>
+            <tr><td class="num">4</td><td>Redirect back</td><td>Entra ID sends the browser back to <code class="inline">SPA_REDIRECT_URI</code> with a one-time authorization <code class="inline">code</code></td></tr>
+            <tr><td class="num">5</td><td>Code exchange</td><td>SPA POSTs the <code class="inline">code</code> plus the original <code class="inline">code_verifier</code> to Entra's <code class="inline">/token</code> endpoint</td></tr>
+            <tr><td class="num">6</td><td>Verifier checked</td><td>Entra hashes the verifier, compares to the challenge from step 1. Match → issues an access token, ID token, refresh token</td></tr>
+            <tr><td class="num">7</td><td>Every API call</td><td><code class="inline">Authorization: Bearer &lt;access_token&gt;</code> on each request to the resource server</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout info">
+        <span class="ic">Why</span>
+        <div><p>An attacker who intercepts the code in step 4 cannot redeem it — they don't have the verifier, which was never transmitted until step 5, over a direct (non-redirect) connection. A stolen client secret in a traditional confidential-client flow is reusable indefinitely; a stolen authorization code without its verifier is worthless.</p></div>
+      </div>
+
+      <h3>Token shapes observed from a real sign-in</h3>
+      <p>These claim shapes were captured off a live token issued by this project's own tenant — they are not invented examples.</p>
+
+      <div class="trace">
+        <div class="trace-head"><span>access_token</span><span class="path">decoded JWT payload</span></div>
+        <div class="trace-body">
+          <div class="code-block" style="margin:0; padding:14px 16px">
+<pre><span class="p">aud</span>    = <span class="k">api://6841df0b-ee33-4828-8ddf-a017945f9bb5</span>   <span class="c">← this API's client ID, not the SPA's</span>
+<span class="p">iss</span>    = <span class="k">https://sts.windows.net/&lt;tenant&gt;/</span>         <span class="c">← see §12, defect 2 — two valid issuer shapes exist</span>
+<span class="p">scp</span>    = <span class="k">Api.Access</span>
+<span class="p">roles</span>  = <span class="k">["Resource.Admin"]</span>
+<span class="p">amr</span>    = <span class="k">["pwd","mfa"]</span>                             <span class="c">← authentication methods actually used</span></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <span class="ic">Note</span>
+        <div><p>The <code class="inline">id_token</code> from the same sign-in carries <code class="inline">aud</code> = the <b>SPA's</b> client ID — different from the access token's audience. The two tokens are scoped to different consumers and are not interchangeable. The resource server only ever sees the access token.</p></div>
+      </div>
+    </section>
+
+    <!-- ============================================================ 3 ============================================================ -->
+    <section id="sec-validation">
+      <div class="sec-head"><span class="sec-num">3</span><h2>Token validation, server-side</h2></div>
+      <p>A signature alone is not sufficient. Four independent checks run on every request, implemented in <code class="inline">SecurityConfig.java</code>:</p>
+
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Check</th><th>Rejects</th><th>Implementation</th></tr></thead>
+          <tbody>
+            <tr><td><b>Signature</b></td><td>Forged or tampered tokens</td><td><code class="inline">NimbusJwtDecoder</code> against Entra's JWKS, fetched once and cached (no per-request network call — NFR-2)</td></tr>
+            <tr><td><b>Issuer</b></td><td>Tokens from a different tenant</td><td><code class="inline">TenantIssuerValidator</code> — a custom validator, not Spring's default (see §12)</td></tr>
+            <tr><td><b>Audience</b></td><td>A validly-signed token minted for a <em>different</em> API</td><td><code class="inline">AudienceValidator</code> — accepts either <code class="inline">&lt;client-id&gt;</code> or <code class="inline">api://&lt;client-id&gt;</code> spelling</td></tr>
+            <tr><td><b>Expiry</b></td><td>Replayed old tokens</td><td><code class="inline">JwtValidators.createDefault()</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>The audience check is the one people skip, and it's the one that matters most: without it, <em>any</em> correctly-signed token from your tenant — including one issued to a completely unrelated application — would be accepted. This was verified by deletion: removing <code class="inline">AudienceValidator</code> from the decoder chain and re-running the test suite turned a wrong-audience 401 into a 200 (§12 records the full list of mutation tests).</p>
+
+      <h4>Why the issuer check is custom, not Spring's default</h4>
+      <p>Entra ID mints two different, both legitimate, issuer strings for the same tenant depending on how the client's authority was configured:</p>
+      <div class="ref-list">
+        <div class="ref-item"><div class="k">v2.0 shape</div><div class="v"><code class="inline">https://login.microsoftonline.com/&lt;tenant&gt;/v2.0</code></div></div>
+        <div class="ref-item"><div class="k">v1.0 / STS shape</div><div class="v"><code class="inline">https://sts.windows.net/&lt;tenant&gt;/</code> — what MSAL's default authority (no explicit <code class="inline">/v2.0</code> suffix) actually produces</div></div>
+      </div>
+      <p>Spring's <code class="inline">JwtValidators.createDefaultWithIssuer()</code> pins exactly one string. This project hit that mismatch against a real tenant — the fix and its proof are in §12, defect 2.</p>
+    </section>
+
+    <!-- ============================================================ 4 ============================================================ -->
+    <section id="sec-authz">
+      <div class="sec-head"><span class="sec-num">4</span><h2>401 vs 403 — read this before filing a bug</h2></div>
+      <p>The single most common false alarm in this system. The distinction is load-bearing, not cosmetic:</p>
+
+      <div class="ref-list">
+        <div class="ref-item"><div class="k"><span class="chip err">401 Unauthorized</span></div><div class="v">"I don't know who you are." No token, a malformed token, an expired token, a bad signature, wrong issuer, wrong audience. You never got past authentication.</div></div>
+        <div class="ref-item"><div class="k"><span class="chip warn">403 Forbidden</span></div><div class="v">"I know exactly who you are. You're not allowed." The token is completely valid — it just doesn't carry the <code class="inline">Resource.Admin</code> role. You passed authentication and failed authorization.</div></div>
+      </div>
+
+      <div class="table-scroll">
+      <table>
+        <thead><tr><th>Endpoint</th><th>Requires</th><th>No token</th><th>Valid token, no role</th><th>Valid token, with role</th></tr></thead>
+        <tbody>
+          <tr><td><code class="inline">GET /api/resource</code></td><td>Any valid token</td><td><span class="chip err">401</span></td><td><span class="chip ok">200</span></td><td><span class="chip ok">200</span></td></tr>
+          <tr><td><code class="inline">GET /api/admin</code></td><td>Valid token + <code class="inline">Resource.Admin</code></td><td><span class="chip err">401</span></td><td><span class="chip warn">403</span></td><td><span class="chip ok">200</span></td></tr>
+        </tbody>
+      </table>
+      </div>
+
+      <div class="callout danger">
+        <span class="ic">Pitfall</span>
+        <div>
+          <p>Entra ID ships app roles in a <code class="inline">roles</code> claim. Spring Security's <b>default</b> authorities converter only reads <code class="inline">scope</code>/<code class="inline">scp</code> — it never looks at <code class="inline">roles</code> at all. Running this project's security config with Spring's stock converter makes <code class="inline">/api/admin</code> return 403 for <em>every</em> token, forever, regardless of role assignment. It looks like correct security. It is a silently broken role gate.</p>
+          <p>This is exactly why <code class="inline">SecurityConfig.jwtAuthenticationConverter()</code> exists as a hand-built converter rather than Spring's default — and why it's mutation-tested (§12) rather than merely read and trusted.</p>
+        </div>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- ============================================================ 5 ============================================================ -->
+    <section id="sec-cli">
+      <div class="sec-head"><span class="sec-num">5</span><h2>CLI bootstrap — the fast path</h2></div>
+      <p class="lede">One script, paste and run, produces a working <code class="inline">.env</code> against your own tenant. No portal clicking. This is the recommended path for anyone comfortable at a terminal.</p>
+
+      <h4>Prerequisites</h4>
+      <div class="ref-list">
+        <div class="ref-item"><div class="k">Azure CLI (<code class="inline">az</code>)</div><div class="v">learn.microsoft.com/cli/azure/install-azure-cli</div></div>
+        <div class="ref-item"><div class="k">jq</div><div class="v">bash script only. <code class="inline">brew install jq</code> / <code class="inline">apt install jq</code>. The PowerShell variant parses JSON natively and needs no extra tool.</div></div>
+        <div class="ref-item"><div class="k">A Microsoft account</div><div class="v">A tenant is auto-provisioned on first sign-in if you don't have one. Zero paid subscription required — app registrations live entirely in Entra ID's free tier.</div></div>
+      </div>
+
+      <h4>Run it</h4>
+      <div class="code-block">
+        <p class="code-label">bash / zsh (macOS, Linux, WSL2, Git Bash)</p>
+<pre><span class="k">git</span> clone https://github.com/&lt;owner&gt;/entractive.git
+<span class="k">cd</span> entractive
+<span class="k">bash</span> docs/scripts/bootstrap-entra.sh</pre>
+      </div>
+      <div class="code-block">
+        <p class="code-label">PowerShell (Windows, or pwsh anywhere)</p>
+<pre><span class="k">git</span> clone https://github.com/&lt;owner&gt;/entractive.git
+<span class="k">cd</span> entractive
+.\docs\scripts\bootstrap-entra.ps1</pre>
+      </div>
+
+      <div class="callout warn">
+        <span class="ic">Status</span>
+        <div><p>The bash script has been run against a real tenant repeatedly, including the full delete-and-recreate path — both app registrations deleted via <code class="inline">az ad app delete</code>, then rebuilt from nothing by this script, then a working sign-in confirmed against the fresh registrations. The PowerShell port mirrors it line-for-line but has not itself been executed in the environment that wrote it — see the note in §6 before relying on it unattended.</p></div>
+      </div>
+
+      <h4>What it does, in order</h4>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th class="num">#</th><th>Action</th><th>Idempotent?</th></tr></thead>
+          <tbody>
+            <tr><td class="num">1</td><td><code class="inline">az login</code> — skipped if already signed in</td><td>—</td></tr>
+            <tr><td class="num">2</td><td>Create <code class="inline">sso-resource-server</code> app registration</td><td>Looked up by name first; reused if found</td></tr>
+            <tr><td class="num">3</td><td>Add the <code class="inline">Api.Access</code> scope + <code class="inline">Resource.Admin</code> app role</td><td>Checked by <code class="inline">value</code> before adding</td></tr>
+            <tr><td class="num">4</td><td>Create <code class="inline">sso-spa</code> under the <b>SPA</b> redirect platform</td><td>Looked up by name first; reused if found</td></tr>
+            <tr><td class="num">5</td><td>Grant the SPA permission to call the API's scope; admin-consent tenant-wide</td><td>Checked via Graph before granting</td></tr>
+            <tr><td class="num">6</td><td>Create service principals for both apps</td><td>Checked before creating</td></tr>
+            <tr><td class="num">7</td><td>Assign <code class="inline">Resource.Admin</code> to the signed-in user</td><td>Checked against existing role assignments</td></tr>
+            <tr><td class="num">8</td><td>Write <code class="inline">.env</code> — backs up any existing one first</td><td>Always backs up before writing, never silently clobbers</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>Non-default ports</h4>
+      <p>If 3000/8080 are already taken on your machine, set the port env vars before invoking — the script writes the matching values into <code class="inline">.env</code> and registers the correct redirect URI on the SPA:</p>
+      <div class="code-block">
+        <p class="code-label">bash</p>
+<pre><span class="k">SPA_HOST_PORT</span>=3100 <span class="k">API_HOST_PORT</span>=8180 bash docs/scripts/bootstrap-entra.sh</pre>
+      </div>
+      <p>Verified live: switching ports and switching back both work without manual cleanup — a new redirect URI is added alongside any existing one on the SPA registration, never replacing it.</p>
+    </section>
+
+    <!-- ============================================================ 6 ============================================================ -->
+    <section id="sec-cli-ref">
+      <div class="sec-head"><span class="sec-num">6</span><h2>CLI command reference</h2></div>
+      <p>The individual <code class="inline">az</code> operations the bootstrap script runs, if you want to run them by hand, adapt them, or understand exactly what's touching your tenant.</p>
+
+      <h4>A tenant must already exist — the CLI cannot create one</h4>
+      <div class="callout info">
+        <span class="ic">Fact</span>
+        <div>
+          <p>There is no <code class="inline">az</code> command, and no Graph API call, that provisions a new Entra ID tenant. A tenant is created exactly two ways: automatically on a Microsoft account's first sign-in to any Entra service, or manually in the portal (<b>Entra ID → Overview → Manage tenants → Create</b>). <code class="inline">az login</code> only <em>resolves to</em> whichever tenant already exists for the signed-in account — it cannot manufacture one.</p>
+          <p>If <code class="inline">az account show</code> returns no tenant at all, every subsequent <code class="inline">az ad app</code> command fails, because there's nothing to register into. Sign into <a href="https://entra.microsoft.com" target="_blank" rel="noopener">entra.microsoft.com</a> once in a browser first if you've never used Entra ID before — that's what provisions it.</p>
+        </div>
+      </div>
+
+      <h4>Login and identity</h4>
+      <div class="code-block">
+<pre><span class="k">az</span> login
+<span class="c"># if MFA forces a tenant-scoped login:</span>
+<span class="k">az</span> login --tenant &lt;TENANT_ID&gt;
+
+<span class="c"># confirm what you're signed into</span>
+<span class="k">az</span> account show --query <span class="s">'{tenant:tenantId, user:user.name}'</span> -o json
+
+<span class="c"># resolve your own object ID (needed for role assignment)</span>
+<span class="k">az</span> ad signed-in-user show --query id -o tsv</pre>
+      </div>
+
+      <h4>Confirming you can register apps at all</h4>
+      <p>Before building anything, this is worth running in isolation — it's the fastest way to tell "my account is broken" apart from "my tenant policy blocks this":</p>
+      <div class="code-block">
+<pre><span class="k">az</span> ad app create --display-name <span class="s">"permission-test"</span> --query <span class="s">'{appId:appId, id:id}'</span> -o json
+<span class="c"># if it returns an appId, you have the rights you need — delete the probe:</span>
+<span class="k">az</span> ad app delete --id &lt;appId from above&gt;</pre>
+      </div>
+      <p>If this errors with "insufficient privileges," that's a tenant-wide setting (<b>Entra ID → Users → User settings → Users can register applications</b>), not a problem with your account. An admin can fix it tenant-wide, or grant you the narrower <b>Application Developer</b> directory role instead.</p>
+
+      <h4>Finding what already exists (idempotency pattern)</h4>
+      <div class="code-block">
+<pre><span class="k">az</span> ad app list --display-name <span class="s">"sso-resource-server"</span> \
+  --query <span class="s">"[?displayName=='sso-resource-server'] | [0]"</span> -o json</pre>
+      </div>
+      <p>This is the check-before-create pattern the bootstrap script runs before every write — if this returns a result, reuse its <code class="inline">appId</code>/<code class="inline">id</code> rather than creating a duplicate.</p>
+
+      <h4>Creating the app registrations</h4>
+      <div class="code-block">
+<pre><span class="k">az</span> ad app create --display-name <span class="s">"sso-resource-server"</span> --sign-in-audience AzureADMyOrg -o json
+<span class="k">az</span> ad app create --display-name <span class="s">"sso-spa"</span> --sign-in-audience AzureADMyOrg -o json</pre>
+      </div>
+      <p><code class="inline">az ad app create</code> accepts no flag for app roles, OAuth2 permission scopes, or the SPA redirect platform — those aren't exposed on the plain CLI surface at all. Each needs a raw Graph API call via <code class="inline">az rest</code>:</p>
+
+      <div class="code-block">
+        <p class="code-label">Set the SPA redirect platform (not "Web" — see §13)</p>
+<pre><span class="k">az</span> rest --method PATCH \
+  --uri <span class="s">"https://graph.microsoft.com/v1.0/applications/&lt;object-id&gt;"</span> \
+  --headers <span class="s">"Content-Type=application/json"</span> \
+  --body <span class="s">'{"spa": {"redirectUris": ["http://localhost:3000"]}}'</span></pre>
+      </div>
+
+      <div class="code-block">
+        <p class="code-label">Add the Api.Access scope + Resource.Admin app role</p>
+<pre><span class="k">az</span> rest --method PATCH \
+  --uri <span class="s">"https://graph.microsoft.com/v1.0/applications/&lt;API object-id&gt;"</span> \
+  --headers <span class="s">"Content-Type=application/json"</span> \
+  --body @scope-and-role.json
+<span class="c"># — see docs/scripts/bootstrap-entra.sh for the exact JSON body this constructs</span></pre>
+      </div>
+
+      <h4>Service principals, consent, role assignment</h4>
+      <div class="code-block">
+<pre><span class="c"># service principals must exist before consent or role assignment can target them</span>
+<span class="k">az</span> ad sp create --id &lt;appId&gt;
+
+<span class="c"># tenant-wide admin consent for the delegated scope</span>
+<span class="k">az</span> rest --method POST \
+  --uri <span class="s">"https://graph.microsoft.com/v1.0/oauth2PermissionGrants"</span> \
+  --body <span class="s">'{"clientId": "&lt;SPA sp id&gt;", "consentType": "AllPrincipals", "resourceId": "&lt;API sp id&gt;", "scope": "Api.Access"}'</span>
+
+<span class="c"># assign the app role to a user</span>
+<span class="k">az</span> rest --method POST \
+  --uri <span class="s">"https://graph.microsoft.com/v1.0/users/&lt;user object-id&gt;/appRoleAssignments"</span> \
+  --body <span class="s">'{"principalId": "&lt;user object-id&gt;", "resourceId": "&lt;API sp id&gt;", "appRoleId": "&lt;role id&gt;"}'</span></pre>
+      </div>
+
+      <div class="callout ok">
+        <span class="ic">Proven</span>
+        <div><p>Every command pattern above was run live against this project's own tenant — including a full teardown (<code class="inline">az ad app delete</code> on both apps, confirmed gone via <code class="inline">az ad app list --query 'length(@)'</code> returning 0) followed by a complete rebuild through the bootstrap script, landing freshly-minted client IDs, and a confirmed working sign-in against the new registrations.</p></div>
+      </div>
+
+      <h4>PowerShell equivalents</h4>
+      <p>The PowerShell script (<code class="inline">docs/scripts/bootstrap-entra.ps1</code>) runs the identical sequence via <code class="inline">ConvertFrom-Json</code> instead of <code class="inline">jq</code>. It was hand-reviewed for known Windows-specific failure modes rather than executed:</p>
+      <div class="ref-list">
+        <div class="ref-item"><div class="k">No <code class="inline">param()</code> block</div><div class="v">PowerShell requires <code class="inline">param()</code> to be a script's literal first statement — which breaks entirely when the script is pasted inline into a terminal rather than saved and run as a file. Uses an environment variable instead, matching the bash version's convention.</div></div>
+        <div class="ref-item"><div class="k">BOM-free file writes</div><div class="v"><code class="inline">Set-Content -Encoding utf8</code> on Windows PowerShell 5.1 silently emits a UTF-8 byte-order mark, which can break JSON parsing and <code class="inline">.env</code> loaders. Every file write uses <code class="inline">[System.IO.File]::WriteAllText</code> with an explicit no-BOM encoding instead.</div></div>
+        <div class="ref-item"><div class="k">Normalized null handling</div><div class="v">Every <code class="inline">az ... -o tsv</code> read is wrapped in a helper that treats <code class="inline">$null</code>, an empty string, and the literal text <code class="inline">"null"</code> as the same "not found" signal, rather than relying on unverified behavior across az/PowerShell version combinations.</div></div>
+      </div>
+      <p>If the PowerShell script hits anything unexpected, the bash version under WSL2 or Git Bash is the better-tested fallback — identical outcome, same script either way.</p>
+    </section>
+
+    <!-- ============================================================ 7 ============================================================ -->
+    <section id="sec-portal">
+      <div class="sec-head"><span class="sec-num">7</span><h2>Manual path (Azure portal)</h2></div>
+      <p>If you'd rather click through the portal than run a script, or need to see exactly what the CLI is automating, the full walkthrough — field-by-field, with the SPA-vs-Web platform trap called out explicitly — lives in <code class="inline">docs/entra-id-setup.md</code> in the repo. The short version:</p>
+
+      <div class="ref-list">
+        <div class="ref-item"><div class="k">1. API registration</div><div class="v"><b>App registrations → New registration</b>, name <code class="inline">sso-resource-server</code>, no redirect URI. Then <b>Expose an API</b> (scope <code class="inline">Api.Access</code>) and <b>App roles</b> (value <code class="inline">Resource.Admin</code>).</div></div>
+        <div class="ref-item"><div class="k">2. SPA registration</div><div class="v"><b>New registration</b>, name <code class="inline">sso-spa</code>, platform <b>Single-page application</b> (not Web — this is the single highest-impact field on the whole form, see §13), redirect <code class="inline">http://localhost:3000</code>.</div></div>
+        <div class="ref-item"><div class="k">3. Connect + consent</div><div class="v">SPA's <b>API permissions</b> → add the API's <code class="inline">Api.Access</code> delegated scope → <b>Grant admin consent</b>.</div></div>
+        <div class="ref-item"><div class="k">4. Role assignment</div><div class="v"><b>Enterprise applications → sso-resource-server → Users and groups</b> → assign yourself <code class="inline">Resource Admin</code>.</div></div>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- ============================================================ 8 ============================================================ -->
+    <section id="sec-run">
+      <div class="sec-head"><span class="sec-num">8</span><h2>Bring the stack up</h2></div>
+      <p>Once <code class="inline">.env</code> exists (from §5 or §7):</p>
+
+      <div class="code-block">
+        <p class="code-label">All platforms — docker invocations are byte-identical</p>
+<pre><span class="k">docker</span> compose up --build -d
+<span class="k">docker</span> compose ps              <span class="c"># both rows should read (healthy)</span>
+<span class="k">docker</span> compose logs -f         <span class="c"># live request-level logs</span></pre>
+      </div>
+
+      <p>First build takes roughly two minutes (Maven + npm dependency downloads happen inside the build, not on the host). Subsequent <code class="inline">docker compose up</code> reaches healthy in about 11 seconds on prebuilt images — measured on an M1 Max, not the spec's minimum-spec host, so treat that figure as a ballpark with headroom rather than a guarantee.</p>
+
+      <div class="callout warn">
+        <span class="ic">Note</span>
+        <div><p>No JDK, Maven, or Node install is required on the host for any of this — both images build entirely inside Docker.</p></div>
+      </div>
+
+      <h4>Ports already taken</h4>
+      <p>If 3000 or 8080 are in use by something else on your machine, set <code class="inline">SPA_HOST_PORT</code>/<code class="inline">API_HOST_PORT</code> in <code class="inline">.env</code> — but Entra ID matches the redirect URI <b>exactly, including the port</b>. Changing the port without updating the registered redirect URI produces <code class="inline">AADSTS50011</code> (§11).</p>
+    </section>
+
+    <!-- ============================================================ 9 ============================================================ -->
+    <section id="sec-env">
+      <div class="sec-head"><span class="sec-num">9</span><h2>Environment variable reference</h2></div>
+      <p>Every variable <code class="inline">docker-compose.yml</code> actually reads. The three marked <b>required</b> have no default — compose refuses to start without them.</p>
+
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Variable</th><th>Consumed by</th><th>Default</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code class="inline">TENANT_ID</code></td><td>both</td><td><span class="chip err">required</span></td><td>Entra ID tenant GUID</td></tr>
+            <tr><td><code class="inline">SPA_CLIENT_ID</code></td><td>spa</td><td><span class="chip err">required</span></td><td>MSAL public client ID</td></tr>
+            <tr><td><code class="inline">API_CLIENT_ID</code></td><td>resource-server</td><td><span class="chip err">required</span></td><td>Expected <code class="inline">aud</code> claim on incoming tokens</td></tr>
+            <tr><td><code class="inline">API_SCOPE</code></td><td>spa</td><td><span class="chip err">required</span></td><td>Scope the SPA requests, <code class="inline">api://&lt;API_CLIENT_ID&gt;/Api.Access</code></td></tr>
+            <tr><td><code class="inline">REQUIRED_ROLE</code></td><td>resource-server</td><td><code class="inline">Resource.Admin</code></td><td>App role gating <code class="inline">/api/admin</code></td></tr>
+            <tr><td><code class="inline">SPA_REDIRECT_URI</code></td><td>spa</td><td><code class="inline">http://localhost:3000</code></td><td>Must match the Entra app registration exactly</td></tr>
+            <tr><td><code class="inline">API_BASE_URL</code></td><td>spa</td><td><code class="inline">http://localhost:8080</code></td><td>Where the SPA sends API calls — the host port, not the Docker internal network</td></tr>
+            <tr><td><code class="inline">CORS_ALLOWED_ORIGINS</code></td><td>resource-server</td><td><code class="inline">http://localhost:3000</code></td><td>Browser origin allowed to call the API cross-origin</td></tr>
+            <tr><td><code class="inline">SPA_HOST_PORT</code></td><td>compose (host mapping)</td><td><code class="inline">3000</code></td><td>Host-side port only — the container always listens on 80 internally</td></tr>
+            <tr><td><code class="inline">API_HOST_PORT</code></td><td>compose (host mapping)</td><td><code class="inline">8080</code></td><td>Host-side port only — container always listens on 8080 internally</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout info">
+        <span class="ic">Design</span>
+        <div><p><code class="inline">.env</code> is read by the <b>container at startup</b>, not baked into the image at build time. The SPA's nginx entrypoint regenerates a small <code class="inline">/config.js</code> from its environment on every container start — so changing <code class="inline">.env</code> needs a container restart, never a rebuild, and the same image works across any tenant.</p></div>
+      </div>
+    </section>
+
+    <!-- ============================================================ 10 ============================================================ -->
+    <section id="sec-tests">
+      <div class="sec-head"><span class="sec-num">10</span><h2>Test suite</h2></div>
+      <p>14 tests, entirely offline — they stand up a mock JWKS endpoint and sign tokens with a locally generated RSA key, so the resource server's real validation code path is exercised without ever touching Entra ID.</p>
+
+      <div class="code-block">
+        <p class="code-label">With a JDK 21 + Maven on the host</p>
+<pre><span class="k">cd</span> resource-server <span class="p">&amp;&amp;</span> mvn test</pre>
+      </div>
+      <div class="code-block">
+        <p class="code-label">Docker only — no JDK/Maven needed on the host at all</p>
+<pre><span class="k">docker</span> run --rm -v <span class="s">"$PWD/resource-server"</span>:/build -w /build \
+  maven:3.9-eclipse-temurin-21 mvn -B test</pre>
+      </div>
+
+      <div class="table-scroll">
+        <table>
+          <caption>What each test actually proves</caption>
+          <thead><tr><th>Test</th><th>Asserts</th></tr></thead>
+          <tbody>
+            <tr><td><code class="inline">validTokenReturns200</code></td><td>Correct token → payload returned</td></tr>
+            <tr><td><code class="inline">missingTokenReturns401</code></td><td>No <code class="inline">Authorization</code> header</td></tr>
+            <tr><td><code class="inline">malformedTokenReturns401</code></td><td>Not a JWT at all</td></tr>
+            <tr><td><code class="inline">expiredTokenReturns401</code></td><td>Expiry enforced</td></tr>
+            <tr><td><code class="inline">tamperedSignatureReturns401</code></td><td>Signed by an untrusted key</td></tr>
+            <tr><td><code class="inline">wrongAudienceReturns401</code></td><td>Token minted for a different API</td></tr>
+            <tr><td><code class="inline">wrongIssuerReturns401</code></td><td>Token from a different tenant</td></tr>
+            <tr><td><code class="inline">stsIssuerShapeReturns200</code></td><td>The v1.0/STS issuer shape (§12, defect 2) is accepted, not just the v2.0 shape</td></tr>
+            <tr><td><code class="inline">missingRoleReturns403</code></td><td>Authenticated but not authorized</td></tr>
+            <tr><td><code class="inline">correctRoleReturns200</code></td><td>Role satisfies the gate</td></tr>
+            <tr><td><code class="inline">wrongRoleReturns403</code></td><td>A different role does not satisfy it</td></tr>
+            <tr><td><code class="inline">corsPreflightAllowed</code></td><td>SPA origin allowed</td></tr>
+            <tr><td><code class="inline">corsPreflightFromOtherOriginRefused</code></td><td>Other origins refused</td></tr>
+            <tr><td><code class="inline">healthIsPublic</code></td><td>Compose healthcheck can reach <code class="inline">/actuator/health</code> unauthenticated</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <hr class="rule">
+
+    <!-- ============================================================ 11 ============================================================ -->
+    <section id="sec-errors">
+      <div class="sec-head"><span class="sec-num">11</span><h2>Error reference</h2></div>
+      <p>Decoded, with the actual fix — not just the code.</p>
+
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Code / status</th><th>Meaning</th><th>Fix</th></tr></thead>
+          <tbody>
+            <tr><td><code class="inline">AADSTS50011</code></td><td>Redirect URI mismatch</td><td>Registered URI must match exactly, including port and trailing slash. Changed the SPA's host port? Update the app registration too.</td></tr>
+            <tr><td><code class="inline">AADSTS9002326</code></td><td>Cross-origin token redemption</td><td>SPA was registered under <b>Web</b> instead of <b>SPA</b>. Fix the platform in <b>Authentication</b> — delete the Web entry, add a SPA platform entry.</td></tr>
+            <tr><td><code class="inline">AADSTS50076</code></td><td>MFA required</td><td>Not an account error. Sign in through a real browser; for CLI, <code class="inline">az login --tenant &lt;id&gt;</code> handles the interactive MFA prompt.</td></tr>
+            <tr><td><code class="inline">AADSTS65001</code></td><td>Consent not granted</td><td>Grant admin consent on the SPA's API permissions, or let each user consent individually at first sign-in.</td></tr>
+            <tr><td><code class="inline">AADSTS700016</code></td><td>App not found in directory</td><td>Wrong client ID, or signed into the wrong tenant.</td></tr>
+            <tr><td><code class="inline">AADSTS90002</code></td><td>Tenant not found</td><td>Wrong tenant ID, or the directory was never provisioned — see §6.</td></tr>
+            <tr><td>"Insufficient privileges" on app registration</td><td>Tenant policy blocks non-admin app creation</td><td>Admin enables <b>Users can register applications</b>, or grants you the <b>Application Developer</b> role.</td></tr>
+            <tr><td><span class="chip warn">403</span> with a demonstrably valid token</td><td>Not an Entra or network error</td><td>The token is genuine but lacks the app role. Assign the role, then <b>sign out and back in</b> — role changes only appear in a newly issued token.</td></tr>
+            <tr><td><code class="inline">port is already allocated</code></td><td>Something else on the host owns 3000/8080</td><td>Set <code class="inline">SPA_HOST_PORT</code>/<code class="inline">API_HOST_PORT</code> in <code class="inline">.env</code>, update the registered redirect URI to match.</td></tr>
+            <tr><td><code class="inline">docker compose up</code> fails immediately citing a missing variable</td><td><code class="inline">.env</code> is missing or incomplete</td><td>Confirm <code class="inline">.env</code> exists in the repo root (same directory as <code class="inline">docker-compose.yml</code>) and has all four required values from §9.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================================ 12 ============================================================ -->
+    <section id="sec-defects">
+      <div class="sec-head"><span class="sec-num">12</span><h2>Known defects and fixes</h2></div>
+      <p>Found by running the system against a real tenant, not by reading the code — each is recorded because a plausible-looking implementation produced an observably wrong result.</p>
+
+      <div class="defect">
+        <p class="dtitle">1 · Converter bean broke the entire application context</p>
+        <p>Exposing the JWT authorities converter as a <code class="inline">@Bean</code> of type <code class="inline">Converter</code> caused Spring MVC's <code class="inline">FormattingConversionService</code> to adopt it as a general-purpose type converter, which cannot infer generic types from a lambda. Every test errored at context load.</p>
+        <p><span class="fix">Fixed</span> by building a concrete <code class="inline">JwtAuthenticationConverter</code> instance instead of publishing a lambda-backed bean.</p>
+      </div>
+
+      <div class="defect">
+        <p class="dtitle">2 · Real tokens rejected with "The iss claim is not valid"</p>
+        <p>The resource server was hardcoded to accept only the <code class="inline">.../v2.0</code> issuer shape. A real sign-in against this project's actual tenant produced a token with the <code class="inline">sts.windows.net/...</code> shape instead — a legitimate alternate issuer Entra ID mints depending on the client's configured authority (see §3). Every authenticated call returned 401 despite a completely valid token.</p>
+        <p><span class="fix">Fixed</span> with <code class="inline">TenantIssuerValidator</code>, which accepts either shape for the configured tenant ID. Mutation-tested: restricting the validator back to v2.0-only was confirmed to reproduce the exact original failure, then reverted.</p>
+      </div>
+
+      <div class="defect">
+        <p class="dtitle">3 · Frontend threw "text is not defined" on every authenticated call</p>
+        <p>A refactor of the "render an empty response body legibly" logic was applied to the unauthenticated code path but not the authenticated one, leaving a reference to a variable that only existed in the sibling function's scope. Every "Valid token" and "Role-gated" button click threw a <code class="inline">ReferenceError</code> in the browser before the HTTP response was ever read — masking whatever the server actually returned.</p>
+        <p><span class="fix">Fixed</span> by correcting the body-parsing call; confirmed in a real browser with zero console errors afterward.</p>
+      </div>
+
+      <div class="defect">
+        <p class="dtitle">4 · NFR-4 request logging produced no output at all</p>
+        <p>A <code class="inline">@Component</code> + <code class="inline">@Order(MAX_VALUE)</code> filter is ordered <em>after</em> Spring Security's filter chain, so requests rejected with 401/403 short-circuited before the logging filter ever ran. A stated requirement with zero live code path, which read as satisfied in source.</p>
+        <p><span class="fix">Fixed</span> with an explicit <code class="inline">FilterRegistrationBean</code> at <code class="inline">HIGHEST_PRECEDENCE</code>; confirmed by observing 401 lines appear in <code class="inline">docker compose logs</code>.</p>
+      </div>
+
+      <div class="defect">
+        <p class="dtitle">5 · SPA container reported unhealthy while nginx was fine</p>
+        <p>The healthcheck used <code class="inline">localhost</code>, which resolves to <code class="inline">::1</code> first inside the container — but nginx was configured to listen on IPv4 only. Connection refused on every health probe.</p>
+        <p><span class="fix">Fixed</span> by pointing the healthcheck at <code class="inline">127.0.0.1</code> explicitly.</p>
+      </div>
+
+      <h4>Mutation tests — proving the guards are load-bearing</h4>
+      <p>A passing test suite proves nothing about a specific guard until that guard has been deliberately broken and watched fail. Three guards were mutated, each reverted by reversing the exact edit and diffed byte-identical afterward:</p>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Mutation</th><th>Result</th></tr></thead>
+          <tbody>
+            <tr><td>Removed <code class="inline">AudienceValidator</code> from the decoder chain</td><td><code class="inline">wrongAudienceReturns401</code> → expected 401, got <b>200</b></td></tr>
+            <tr><td>Stopped mapping the <code class="inline">roles</code> claim to authorities</td><td><code class="inline">correctRoleReturns200</code> → expected 200, got <b>403</b></td></tr>
+            <tr><td>Replaced the CORS origin allowlist with <code class="inline">*</code></td><td><code class="inline">corsPreflightFromOtherOriginRefused</code> → expected 403, got <b>200</b></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================================ 13 ============================================================ -->
+    <section id="sec-design">
+      <div class="sec-head"><span class="sec-num">13</span><h2>Design decisions worth knowing</h2></div>
+
+      <h4>Runtime config, not build-time</h4>
+      <p>Vite resolves <code class="inline">import.meta.env</code> at <em>build</em> time, which would bake a specific tenant's IDs into the Docker image — one image per tenant, and secrets-adjacent values frozen into a shippable artifact. Instead, the SPA container's nginx entrypoint writes a small <code class="inline">/config.js</code> from its live environment on every container start. One image works across any tenant; changing <code class="inline">.env</code> needs only a restart, never a rebuild.</p>
+
+      <h4>JWKS fetched lazily, not via discovery</h4>
+      <p>Spring's <code class="inline">withIssuerLocation()</code> fetches Entra's OpenID discovery document <em>eagerly at startup</em> and aborts the whole application context if that fetch fails. That would make the resource server refuse to boot before the Entra registrations exist, or with no internet — exactly the state a fresh clone starts in. The JWKS URI is instead derived by URL convention from the tenant ID; a genuinely bad tenant then surfaces as a 401 on the first request, not a crash loop at startup.</p>
+
+      <h4>SPA platform, not Web (repeated because it's the costliest mistake)</h4>
+      <p>Registering the SPA under Entra's <b>Web</b> redirect platform makes Entra expect a client secret on every token redemption. A browser app cannot hold a secret — that's the entire reason PKCE exists. Get this one field wrong and the failure (<code class="inline">AADSTS9002326</code>) looks like a CORS problem, not a one-click portal fix.</p>
+
+      <h4>No client secret, anywhere, by design</h4>
+      <p>Verified directly against the live app registration: <code class="inline">az ad app show --id &lt;spa&gt; --query 'length(passwordCredentials)'</code> returns <code class="inline">0</code>. Also verified in the built SPA bundle — grepping the compiled JavaScript for the tenant ID returns zero matches; the only GUID-shaped strings present are MSAL's own hardcoded well-known constants.</p>
+    </section>
+
+    <!-- ============================================================ 14 ============================================================ -->
+    <section id="sec-notverified">
+      <div class="sec-head"><span class="sec-num">14</span><h2>What's not independently verified</h2></div>
+      <p class="lede">Stated plainly, not implied. If you're relying on this system for something that matters, these are the specific claims worth re-checking on your own hardware and tenant rather than taking on faith.</p>
+
+      <div class="ref-list">
+        <div class="ref-item"><div class="k">PowerShell script</div><div class="v">Hand-reviewed, not executed — no PowerShell was available in the environment that wrote it (see §6). The bash script has been run repeatedly against a real tenant, including a full delete-and-rebuild cycle.</div></div>
+        <div class="ref-item"><div class="k">11-second healthy time</div><div class="v">Measured on an M1 Max, not the spec's stated minimum-spec host (4 GB RAM / 2 vCPU). Real headroom against the 60-second budget, but the minimum-spec figure itself is unmeasured.</div></div>
+        <div class="ref-item"><div class="k"><code class="inline">roles</code> claim shape</div><div class="v">Confirmed as a JSON string array on this project's own tenant, via a real decoded token (§2). Not confirmed across tenant configurations that might shape app role claims differently (e.g. very large role counts, where Entra can switch to a Graph-link indirection instead of inline claims).</div></div>
+        <div class="ref-item"><div class="k">This document's screenshots / terminal captures</div><div class="v">Where this briefing describes a command's output, that output was captured from a real run against a real tenant in the session that wrote it. It was not independently re-run by a second person as a check on the check.</div></div>
+      </div>
+    </section>
+
+    <footer class="doc">
+      <p>Generated as a standalone engineering reference for the local OAuth2/PKCE SSO stack. Every claim of the form "verified," "proven," or "confirmed live" in this document refers to a command that was actually executed against a real Microsoft Entra ID tenant and a real running Docker stack — not inferred from reading source.</p>
+    </footer>
+
+  </main>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var toggle = document.getElementById('railToggle');
+  var rail = document.getElementById('rail');
+  if (toggle && rail) {
+    toggle.addEventListener('click', function(){
+      var open = rail.classList.toggle('open');
+      toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    document.addEventListener('click', function(e){
+      if (window.innerWidth > 920) return;
+      if (!rail.contains(e.target) && !toggle.contains(e.target) && rail.classList.contains('open')) {
+        rail.classList.remove('open');
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
+
+  // Scroll-spy for the rail TOC
+  var links = Array.prototype.slice.call(document.querySelectorAll('#tocNav a'));
+  var sections = links.map(function(a){
+    var id = a.getAttribute('href').slice(1);
+    return document.getElementById(id);
+  }).filter(Boolean);
+
+  function onScroll(){
+    var pos = window.scrollY + 120;
+    var activeIdx = 0;
+    for (var i = 0; i < sections.length; i++) {
+      if (sections[i].offsetTop <= pos) activeIdx = i;
+    }
+    links.forEach(function(a, i){ a.classList.toggle('active', i === activeIdx); });
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+})();
+</script>
+
+</body>
+</html>

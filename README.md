@@ -184,6 +184,7 @@ needed to run them.
 | [docs/entra-id-setup.md](docs/entra-id-setup.md) | App registration walkthrough |
 | [docs/bootstrap-entra-cli.md](docs/bootstrap-entra-cli.md) | Same setup, scripted — one paste instead of the portal |
 | [docs/getting-started.html](docs/getting-started.html) | Interactive, self-contained setup guide (open in a browser) |
+| [docs/engineering-briefing.html](docs/engineering-briefing.html) | Standalone technical reference for an engineer with no other context — architecture, CLI command reference, error codes, known defects |
 | [docs/verification.md](docs/verification.md) | What was proven, and how |
 
 ## Notes on two design decisions
