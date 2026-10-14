@@ -171,6 +171,30 @@ issuer, role present/absent/mismatched, and CORS from allowed and disallowed
 origins. They run fully offline against a mock JWKS endpoint, so no tenant is
 needed to run them.
 
+## API collection (Bruno)
+
+[bruno/entractive-sso](bruno/entractive-sso) is a [Bruno](https://www.usebruno.com)
+collection that exercises every endpoint. Open that folder in Bruno (or run
+`bru run <folder> --env local` from inside it) and select the `local`
+environment. Each folder runs its prerequisites first, in order.
+
+| Folder | Needs sign-in? | What it covers |
+| --- | --- | --- |
+| `00-stack-health` | No | API health, SPA healthz, runtime `config.js`, deep-route fallback |
+| `01-api-rejects-unauthenticated` | No | `401` for missing/malformed token, CORS preflight allowed and refused |
+| `02-authenticated-calls` | **Yes** | Authorize, token exchange, `/api/resource`, `/api/admin`, ID-token-as-bearer `401`, refresh grant |
+
+Before running: edit `environments/local.bru` so `spaClientId`, `apiClientId`,
+`apiScope`, `redirectUri` and `apiBaseUrl` match your `.env` (the checked-in
+values are one developer's tenant and ports 3100/8180). The `config.js` request
+fails loudly if they have drifted from the running container.
+
+Folder `02` cannot be fully scripted: Entra ID needs an interactive sign-in. Sign
+in at the SPA once and either set the `entraSsoCookie` runtime variable
+(`ESTSAUTHPERSISTENT` from DevTools) or paste a live `accessToken`. Pasting only
+`accessToken` covers `/api/resource` and `/api/admin`; the ID-token and refresh
+requests also need `idToken` and `refreshToken`, which only the token exchange sets.
+
 ## Layout
 
 | Path | What |
@@ -186,6 +210,7 @@ needed to run them.
 | [docs/getting-started.html](docs/getting-started.html) | Interactive, self-contained setup guide (open in a browser) |
 | [docs/engineering-briefing.html](docs/engineering-briefing.html) | Standalone technical reference for an engineer with no other context — architecture, CLI command reference, error codes, known defects |
 | [docs/verification.md](docs/verification.md) | What was proven, and how |
+| [bruno/entractive-sso](bruno/entractive-sso) | Bruno collection: one request per endpoint and failure mode, prerequisites nested before dependents |
 
 ## Notes on two design decisions
 

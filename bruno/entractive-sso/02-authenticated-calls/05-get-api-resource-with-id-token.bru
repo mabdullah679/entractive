@@ -1,0 +1,44 @@
+meta {
+  name: GET /api/resource with the ID token (wrong audience) -> 401
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{apiBaseUrl}}/api/resource
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{idToken}}
+  Origin: {{redirectUri}}
+}
+
+docs {
+  The classic mix-up, as a negative control. A genuine, unexpired, correctly
+  signed Entra ID token - but its `aud` is the SPA's client ID, so
+  `AudienceValidator` must refuse it.
+
+  **Prerequisites (earlier in this folder):** 01 authorize -> 02 token exchange
+  -> sets `idToken`.
+
+  Pairs with request 3: same endpoint, same user, only the token differs.
+  If this returned 200 the audience check would be decorative.
+}
+
+script:pre-request {
+  if (!bru.getVar('idToken')) {
+    console.log('WARNING: idToken is empty - run requests 1-2 first. A 401 here would then prove nothing.');
+  }
+}
+
+assert {
+  res.status: eq 401
+}
+
+tests {
+  test("idToken was actually captured (otherwise this 401 is not evidence)", function() {
+    expect(bru.getVar('idToken'), 'idToken empty - 401 is for a blank bearer, not the wrong audience').to.be.a('string').and.not.empty;
+  });
+}

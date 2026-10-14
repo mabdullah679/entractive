@@ -1,0 +1,32 @@
+meta {
+  name: OPTIONS /api/resource - foreign origin refused
+  type: http
+  seq: 5
+}
+
+options {
+  url: {{apiBaseUrl}}/api/resource
+  body: none
+  auth: none
+}
+
+headers {
+  Origin: http://evil.example.com
+  Access-Control-Request-Method: GET
+  Access-Control-Request-Headers: authorization
+}
+
+docs {
+  Proves the allowlist is real. Pair with request 4: that one passes only
+  because the origin is on the list, this one fails only because this one isn't.
+}
+
+assert {
+  res.status: eq 403
+}
+
+tests {
+  test("no allow-origin header leaked", function() {
+    expect(res.getHeader('access-control-allow-origin')).to.not.be.ok;
+  });
+}

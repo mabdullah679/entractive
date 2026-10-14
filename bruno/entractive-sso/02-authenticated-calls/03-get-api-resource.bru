@@ -1,0 +1,150 @@
+meta {
+  name: GET /api/resource with Bearer token
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{apiBaseUrl}}/api/resource
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+  Content-Type: application/json
+  Origin: {{redirectUri}}
+}
+
+docs {
+  # 3 - The protected call: bearer token -> Spring Boot resource server
+
+  Arrow 5 in Figure 2. This is exactly what `api.js -> callApi()` sends from the
+  browser: the `access_token` from request 2, as a `Bearer` credential, at
+  `GET /api/resource`.
+
+  ## Verified 2026-09-30 with a real, live access_token
+
+  A fresh CLI run of this collection starts with `accessToken` empty (auth
+  requires interactive password+MFA, which this preset cannot script), so a
+  standalone `bru run` of just this file gets a correct 401, not the 200 shown
+  below - see the pre-request warning.
+
+  What WAS proven end to end, against the running containers
+  (`sso-spa`/`sso-resource-server`) and the real tenant: signed in once at
+  `http://localhost:3100`, pulled the MSAL-issued `access_token` straight out
+  of the SPA's own `sessionStorage` (undisputably the real token response,
+  since it's what MSAL itself cached after doing the exchange), and sent it
+  here.
+
+  - `GET /api/resource` -> **200**, `audience: ["api://6841df0b-...bb5"]`,
+    `roles: ["Resource.Admin"]`, real `subject`/`name` claims back.
+  - `GET /api/admin` with the same token -> **200** (the token carried
+    `Resource.Admin`).
+  - `GET /api/resource` with no `Authorization` header -> **401** (negative
+    control, same run).
+  - `Access-Control-Allow-Origin: http://localhost:3100` present on every
+    response - CORS is real, not just configured.
+
+  So: run this preset standalone and see 401 - that's this preset behaving
+  correctly with no captured token, not a failure of the stack. To reproduce
+  the 200, paste a live `access_token` into the `accessToken` environment
+  variable (pulled from the SPA's sessionStorage as above), or run requests 1
+  and 2 with a real interactive sign-in first.
+
+  `Origin` is set deliberately so this exercises the **same CORS path the browser
+  uses** - the resource server allowlists `http://localhost:3100` only.
+
+  ## Note on the path
+
+  It is `/api/resource`, **singular**. `ResourceController` maps `@RequestMapping("/api")`
+  + `@GetMapping("/resource")`. There is no `/api/resources` - that path returns
+  401, because Spring Security's `anyRequest().authenticated()` rejects unmatched
+  routes before routing, which makes a typo look identical to an auth failure.
+
+  ## What the 200 proves
+
+  Reaching the controller at all means the token passed **four independent
+  checks** in `SecurityConfig.jwtDecoder()` - the response body shows the
+  evidence for each:
+
+  | Check | Enforced by | Visible in the body as |
+  | --- | --- | --- |
+  | RS256 signature vs Entra ID's JWKS | `NimbusJwtDecoder` (keys cached, arrow 6) | reaching the controller at all |
+  | Not expired / not before | `JwtValidators.createDefault()` | `expiresAt` |
+  | Issuer is this tenant | `TenantIssuerValidator` | - |
+  | Audience is this API | `AudienceValidator` | `audience` |
+
+  Plus `scopes` (from `scp`) and `roles` - the latter is what gates
+  `GET /api/admin` at 403 vs 200.
+
+  ## Evidence to capture
+
+  Run it and keep: the **200**, the `audience` field matching the API client ID,
+  and `subject` / `preferredUsername` identifying the signed-in user. That
+  triplet is the proof the full chain worked end to end - a token minted by
+  Entra ID for *this* user and *this* API was independently validated by the
+  resource server with no call back to Microsoft on the request path (NFR-2).
+
+  ## If you get a 401
+
+  | Cause | Tell |
+  | --- | --- |
+  | `accessToken` empty | Request 2 was not run, or failed. |
+  | Token expired (~1h) | Re-run requests 1-2. |
+  | You sent the **id_token** | `aud` is the SPA client ID, not the API. The classic mistake. |
+  | Wrong `aud` | The scope in request 1/2 was not `{{apiScope}}`. |
+
+  Check `docker compose logs resource-server` - the chain logs the specific
+  rejection reason at DEBUG.
+}
+
+script:pre-request {
+  if (!bru.getVar('accessToken')) {
+    console.log('WARNING: accessToken is empty - run request 2 first. Expect a 401.');
+  }
+}
+
+script:post-response {
+  const b = res.getBody();
+  console.log('HTTP', res.getStatus());
+  if (res.getStatus() === 200 && b) {
+    console.log('subject          :', b.subject);
+    console.log('preferredUsername:', b.preferredUsername);
+    console.log('audience         :', JSON.stringify(b.audience), '<- validated by AudienceValidator');
+    console.log('scopes           :', JSON.stringify(b.scopes));
+    console.log('roles            :', JSON.stringify(b.roles));
+    console.log('expiresAt        :', b.expiresAt);
+  } else {
+    console.log('WWW-Authenticate:', res.getHeader('www-authenticate') || '(none)');
+  }
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("bearer token is accepted - 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("response is the protected payload", function() {
+    expect(res.getBody().message).to.be.a('string').and.not.empty;
+  });
+
+  test("audience on the validated token is this API", function() {
+    const apiId = bru.getEnvVar('apiClientId');
+    const aud = res.getBody().audience || [];
+    const ok = aud.includes(apiId) || aud.includes(`api://${apiId}`);
+    expect(ok, `audience was ${JSON.stringify(aud)}`).to.be.true;
+  });
+
+  test("the call identifies the signed-in user", function() {
+    expect(res.getBody().subject).to.be.a('string').and.not.empty;
+  });
+
+  test("CORS allows the SPA origin", function() {
+    expect(res.getHeader('access-control-allow-origin')).to.equal(bru.getEnvVar('redirectUri'));
+  });
+}

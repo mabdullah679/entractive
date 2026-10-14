@@ -1,0 +1,25 @@
+meta {
+  name: SPA healthz (nginx)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{redirectUri}}/healthz
+  body: none
+  auth: none
+}
+
+docs {
+  nginx `location = /healthz` returns the literal text `ok`.
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("nginx answers ok", function() {
+    expect(String(res.getBody()).trim()).to.equal('ok');
+  });
+}

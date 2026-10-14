@@ -1,0 +1,36 @@
+meta {
+  name: SPA runtime config.js (never cached)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{redirectUri}}/config.js
+  body: none
+  auth: none
+}
+
+docs {
+  Generated per container start by `docker/env.sh`. nginx must send
+  `no-store`, or a re-created container serves a stale tenant ID.
+  Also confirms the tenant/client IDs reached the running container
+  (declared-vs-live drift check) - compares against this environment.
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("Cache-Control forbids caching", function() {
+    expect(res.getHeader('cache-control')).to.include('no-store');
+  });
+
+  test("injected client id matches this environment's spaClientId", function() {
+    expect(String(res.getBody())).to.include(bru.getEnvVar('spaClientId'));
+  });
+
+  test("injected tenant id matches this environment's tenantId", function() {
+    expect(String(res.getBody())).to.include(bru.getEnvVar('tenantId'));
+  });
+}

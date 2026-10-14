@@ -1,0 +1,26 @@
+meta {
+  name: GET /api/resource - no Authorization header -> 401
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{apiBaseUrl}}/api/resource
+  body: none
+  auth: none
+}
+
+docs {
+  FR-6. Mirrors the SPA's "Call API with no token" button (`callApiNoToken`).
+  Spring returns an EMPTY body plus `WWW-Authenticate: Bearer`.
+}
+
+assert {
+  res.status: eq 401
+}
+
+tests {
+  test("challenge header present", function() {
+    expect(res.getHeader('www-authenticate')).to.match(/^Bearer/);
+  });
+}

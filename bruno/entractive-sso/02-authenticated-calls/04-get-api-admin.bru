@@ -1,0 +1,55 @@
+meta {
+  name: GET /api/admin with Bearer token (role-gated)
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{apiBaseUrl}}/api/admin
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{accessToken}}
+  Content-Type: application/json
+  Origin: {{redirectUri}}
+}
+
+docs {
+  FR-7. `@PreAuthorize("hasRole('Resource.Admin')")`.
+
+  **Prerequisites (earlier in this folder, run in order):** 01 authorize ->
+  02 token exchange -> sets `accessToken`.
+
+  The correct status depends on the signed-in user, so this does not hard-code
+  one: it reads the `roles` claim out of the token it is about to send and
+  asserts 200 if `{{requiredRole}}` is there, 403 if it is not. Either way the
+  test proves the gate is wired to the token, which is the point.
+  Never 401 here - the token already passed authentication in request 3.
+}
+
+script:pre-request {
+  if (!bru.getVar('accessToken')) {
+    console.log('WARNING: accessToken is empty - run requests 1-2 first. Expect a 401.');
+  }
+}
+
+assert {
+  res.status: in [200, 403]
+}
+
+tests {
+  test("status matches the role actually in the token", function() {
+    let s = bru.getVar('accessToken').split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    const roles = JSON.parse(decodeURIComponent(escape(atob(s)))).roles || [];
+    const want = roles.includes(bru.getEnvVar('requiredRole')) ? 200 : 403;
+    expect(res.getStatus(), `token roles were ${JSON.stringify(roles)}`).to.equal(want);
+  });
+
+  test("200 body names the required role", function() {
+    if (res.getStatus() !== 200) return;
+    expect(res.getBody().requiredRole).to.equal(bru.getEnvVar('requiredRole'));
+  });
+}

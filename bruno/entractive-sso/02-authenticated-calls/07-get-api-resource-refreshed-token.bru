@@ -1,0 +1,46 @@
+meta {
+  name: GET /api/resource with the refreshed token
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{apiBaseUrl}}/api/resource
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{refreshedAccessToken}}
+  Origin: {{redirectUri}}
+}
+
+docs {
+  End of the silent-renewal path: a token minted by the refresh grant is
+  accepted by the resource server exactly like the original.
+
+  **Prerequisites (earlier in this folder):** 01 authorize -> 02 token exchange
+  -> 06 refresh grant (sets `refreshedAccessToken`).
+}
+
+script:pre-request {
+  if (!bru.getVar('refreshedAccessToken')) {
+    console.log('WARNING: refreshedAccessToken is empty - run request 6 first. Expect a 401.');
+  }
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("audience is this API", function() {
+    const apiId = bru.getEnvVar('apiClientId');
+    const aud = res.getBody().audience || [];
+    expect(aud.includes(apiId) || aud.includes(`api://${apiId}`), `audience was ${JSON.stringify(aud)}`).to.be.true;
+  });
+
+  test("token is distinct from the original", function() {
+    expect(bru.getVar('refreshedAccessToken')).to.not.equal(bru.getVar('accessToken'));
+  });
+}

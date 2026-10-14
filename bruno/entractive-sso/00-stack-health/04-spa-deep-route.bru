@@ -1,0 +1,26 @@
+meta {
+  name: SPA history fallback (deep route)
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{redirectUri}}/some/deep/route
+  body: none
+  auth: none
+}
+
+docs {
+  MSAL can return the user to a path or hash. nginx `try_files ... /index.html`
+  must serve the app instead of a 404.
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("serves index.html", function() {
+    expect(String(res.getBody())).to.include('<div id="root">');
+  });
+}

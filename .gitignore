@@ -1,6 +1,7 @@
 # NFR-5: secrets stay out of version control
 .env
 .env.local
+.env.bak*
 
 # build output
 node_modules/
@@ -9,3 +10,6 @@ target/
 
 .DS_Store
 *.log
+
+# Bruno: runtime secret vars can be written back to *.bru by the desktop app
+bruno/**/.env

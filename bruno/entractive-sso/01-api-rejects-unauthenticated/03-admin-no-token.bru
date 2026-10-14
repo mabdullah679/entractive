@@ -1,0 +1,20 @@
+meta {
+  name: GET /api/admin - no token -> 401 (not 403)
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{apiBaseUrl}}/api/admin
+  body: none
+  auth: none
+}
+
+docs {
+  Unauthenticated is 401, never 403. 403 is reserved for "valid token, missing
+  role" - see 02-authenticated-calls/04-get-api-admin.
+}
+
+assert {
+  res.status: eq 401
+}

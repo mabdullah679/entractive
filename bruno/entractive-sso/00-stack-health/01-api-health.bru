@@ -1,0 +1,28 @@
+meta {
+  name: API health (public)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{apiBaseUrl}}/actuator/health
+  body: none
+  auth: none
+}
+
+docs {
+  `/actuator/health/**` is the only non-OPTIONS route `SecurityConfig` permits
+  without a token. This is what docker-compose's healthcheck hits.
+  Expect `{"status":"UP"}` (`show-details: never`, so no component detail).
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("health is public and UP", function() {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().status).to.equal('UP');
+  });
+}

@@ -1,0 +1,61 @@
+meta {
+  name: PREREQ - Redeem refresh_token for new tokens
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{authority}}/oauth2/v2.0/token
+  body: formUrlEncoded
+  auth: none
+}
+
+headers {
+  Content-Type: application/x-www-form-urlencoded
+  Origin: {{redirectUri}}
+}
+
+body:form-urlencoded {
+  client_id: {{spaClientId}}
+  grant_type: refresh_token
+  refresh_token: {{refreshToken}}
+  scope: openid profile offline_access {{apiScope}}
+}
+
+docs {
+  What MSAL's `acquireTokenSilent` does once the 1h access token expires (FR-3).
+
+  **Prerequisite (earlier in this folder):** 02 token exchange -> sets
+  `refreshToken`.
+
+  Entra ID rotates the refresh token, so the new one overwrites `refreshToken`.
+  The new access token goes into `refreshedAccessToken`, deliberately NOT
+  `accessToken`, so request 7 proves the refreshed token specifically.
+}
+
+script:pre-request {
+  if (!bru.getVar('refreshToken')) {
+    console.log('WARNING: refreshToken is empty - run requests 1-2 first.');
+  }
+}
+
+script:post-response {
+  const b = res.getBody() || {};
+  if (b.access_token) {
+    bru.setVar('refreshedAccessToken', b.access_token);
+    if (b.refresh_token) bru.setVar('refreshToken', b.refresh_token);
+    console.log('refreshed: new access_token captured; refresh_token rotated:', !!b.refresh_token);
+  } else {
+    console.log('No token in response:', b.error, '-', b.error_description);
+  }
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("new access_token issued without user interaction", function() {
+    expect(res.getBody().access_token).to.be.a('string').and.not.empty;
+  });
+}

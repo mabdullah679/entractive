@@ -1,0 +1,32 @@
+meta {
+  name: OPTIONS /api/resource - SPA origin allowed
+  type: http
+  seq: 4
+}
+
+options {
+  url: {{apiBaseUrl}}/api/resource
+  body: none
+  auth: none
+}
+
+headers {
+  Origin: {{redirectUri}}
+  Access-Control-Request-Method: GET
+  Access-Control-Request-Headers: authorization,content-type
+}
+
+docs {
+  The browser's preflight before the SPA's bearer call. OPTIONS is the one
+  method `SecurityConfig` permits without a token.
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("allow-origin echoes the SPA origin", function() {
+    expect(res.getHeader('access-control-allow-origin')).to.equal(bru.getEnvVar('redirectUri'));
+  });
+}

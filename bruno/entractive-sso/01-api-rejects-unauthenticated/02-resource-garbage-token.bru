@@ -1,0 +1,23 @@
+meta {
+  name: GET /api/resource - malformed token -> 401
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{apiBaseUrl}}/api/resource
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer not.a.jwt
+}
+
+docs {
+  FR-6. A bearer value that is not a JWT must be rejected, not 500.
+}
+
+assert {
+  res.status: eq 401
+}

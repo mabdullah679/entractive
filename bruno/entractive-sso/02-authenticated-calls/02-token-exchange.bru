@@ -1,0 +1,158 @@
+meta {
+  name: PREREQ - Token response (id_token + access_token + refresh_token)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{authority}}/oauth2/v2.0/token
+  body: formUrlEncoded
+  auth: none
+}
+
+body:form-urlencoded {
+  client_id: {{spaClientId}}
+  grant_type: authorization_code
+  code: {{authCode}}
+  redirect_uri: {{redirectUri}}
+  code_verifier: {{codeVerifier}}
+  scope: openid profile offline_access {{apiScope}}
+}
+
+headers {
+  Content-Type: application/x-www-form-urlencoded
+  Origin: {{redirectUri}}
+}
+
+docs {
+  # 2 - The token response Entra ID sends the SPA after successful SSO
+
+  This is the exact exchange the SPA performs, in the background, the moment the
+  302 from request 1 lands back on `http://localhost:3100/?code=...`. Entra ID's
+  JSON response here IS "what Entra ID sends the SPA after a successful SSO".
+
+  Note there is **no client secret** in this request. The SPA is a public client;
+  `code_verifier` is the only proof of possession - that is the whole point of
+  PKCE (spec FR-2, NFR-1).
+
+  ## Prerequisites - run request 1 first, in the same session
+
+  This request consumes two variables that request 1 sets:
+
+  | Variable | Set by | Why it matters |
+  | --- | --- | --- |
+  | `authCode` | request 1's post-response script | Single-use. Expires in ~10 min. |
+  | `codeVerifier` | request 1's pre-request script | Must be the verifier whose SHA-256 was sent as `code_challenge`. |
+
+  If `authCode` is empty, request 1 only reached the sign-in page (see its docs,
+  option B). You can also paste a code in manually: sign in at the SPA, and grab
+  `code` from the address bar before React consumes it.
+
+  ## What comes back
+
+  ```json
+  {
+    "token_type": "Bearer",
+    "scope": "api://<api-client-id>/Api.Access",
+    "expires_in": 3599,
+    "access_token": "eyJ0eXAiOiJKV1Qi...",   // -> sent as the bearer in request 3
+    "id_token": "eyJ0eXAiOiJKV1Qi...",       // -> who the user is; for the SPA, not the API
+    "refresh_token": "0.AUcAe..."            // -> present because of offline_access
+  }
+  ```
+
+  The three tokens have three different jobs, and mixing them up is the single
+  most common failure in this stack:
+
+  - **`id_token`** - audience is the **SPA's** client_id. It identifies the user
+    to the SPA. Sending it to the resource server gets a **401**, because
+    `AudienceValidator` expects the API's client ID.
+  - **`access_token`** - audience is the **API's** client_id (or
+    `api://<id>`). This is the only one the resource server accepts.
+  - **`refresh_token`** - opaque, not a JWT. Redeems for fresh tokens without
+    another user interaction.
+
+  All three are captured into variables automatically. Request 3 picks up
+  `accessToken` with no copy-paste.
+
+  ## Common failures
+
+  | Error | Cause |
+  | --- | --- |
+  | `invalid_grant` + `AADSTS54005` | The code was already used. Re-run request 1. |
+  | `invalid_grant` + `AADSTS501481` | `code_verifier` no longer matches - request 1 was re-run after the code was issued. |
+  | `invalid_client` | `client_id` is not the SPA app registration. |
+}
+
+script:post-response {
+  const b = res.getBody() || {};
+
+  if (b.access_token) {
+    bru.setVar('accessToken', b.access_token);
+    bru.setVar('idToken', b.id_token || '');
+    bru.setVar('refreshToken', b.refresh_token || '');
+
+    // Decode the payloads so the audience difference is visible, not asserted.
+    // Read-only: no signature verification here, that is the resource server's
+    // job (request 3) and doing it here would prove nothing about the API.
+    // No Buffer in Bruno's QuickJS sandbox - decode base64url via atob.
+    const claims = (jwt) => {
+      try {
+        let s = jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        while (s.length % 4) s += '=';
+        return JSON.parse(decodeURIComponent(escape(atob(s))));
+      } catch { return null; }
+    };
+
+    const at = claims(b.access_token);
+    const it = b.id_token ? claims(b.id_token) : null;
+
+    console.log('--- token response ---');
+    console.log('token_type :', b.token_type, '| expires_in:', b.expires_in);
+    console.log('scope      :', b.scope);
+    console.log('id_token       aud:', it ? it.aud : '(none)', '<- the SPA');
+    console.log('access_token   aud:', at ? at.aud : '(none)', '<- the API');
+    console.log('access_token   iss:', at ? at.iss : '(none)');
+    console.log('access_token   scp:', at ? at.scp : '(none)');
+    console.log('access_token roles:', at ? (at.roles || '(none)') : '(none)');
+    console.log('refresh_token     :', b.refresh_token ? 'present' : 'absent (no offline_access?)');
+  } else {
+    console.log('No token in response:', b.error, '-', b.error_description);
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.token_type: eq Bearer
+}
+
+tests {
+  test("Entra ID returns 200 with a token payload", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("response carries an id_token", function() {
+    expect(res.getBody().id_token, 'no id_token - was openid in the scope?').to.be.a('string').and.not.empty;
+  });
+
+  test("response carries an access_token", function() {
+    expect(res.getBody().access_token).to.be.a('string').and.not.empty;
+  });
+
+  test("response carries a refresh_token", function() {
+    expect(res.getBody().refresh_token, 'no refresh_token - was offline_access in the scope?').to.be.a('string').and.not.empty;
+  });
+
+  test("id_token audience is the SPA, access_token audience is the API", function() {
+    const claims = (j) => {
+      let s = j.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      while (s.length % 4) s += '=';
+      return JSON.parse(decodeURIComponent(escape(atob(s))));
+    };
+    const it = claims(res.getBody().id_token);
+    const at = claims(res.getBody().access_token);
+    expect(it.aud).to.equal(bru.getEnvVar('spaClientId'));
+    const apiId = bru.getEnvVar('apiClientId');
+    expect([apiId, `api://${apiId}`]).to.include(at.aud);
+  });
+}

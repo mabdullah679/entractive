@@ -1,0 +1,164 @@
+meta {
+  name: PREREQ - Authorize (302 Entra ID -> SPA)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{authority}}/oauth2/v2.0/authorize?client_id={{spaClientId}}&response_type=code&redirect_uri={{redirectUri}}&response_mode=query&scope={{authorizeScope}}&state={{state}}&code_challenge={{codeChallenge}}&code_challenge_method=S256&prompt=none
+  body: none
+  auth: none
+}
+
+params:query {
+  client_id: {{spaClientId}}
+  response_type: code
+  redirect_uri: {{redirectUri}}
+  response_mode: query
+  scope: {{authorizeScope}}
+  state: {{state}}
+  code_challenge: {{codeChallenge}}
+  code_challenge_method: S256
+  prompt: none
+}
+
+headers {
+  Cookie: {{entraSsoCookie}}
+}
+
+settings {
+  encodeUrl: true
+  followRedirects: false
+}
+
+docs {
+  # 1 - The 302 redirect from Entra ID back to the React SPA
+
+  This is the hop `loginRedirect()` triggers. It proves Entra ID terminates the
+  authorization request with a **302 to the SPA's registered redirect URI**.
+
+  `followRedirects` is OFF on purpose - Bruno follows redirects by default,
+  which would chase the `Location` header and hide the 302 you actually asked
+  to see.
+
+  ## Why `prompt=none` is in the query - measured, not assumed
+
+  A first instinct is "just GET /authorize and read the Location header." That
+  is wrong for this endpoint, and it was checked with a raw `curl` before being
+  ruled out: a bare unauthenticated `GET /authorize` (no `prompt` param) comes
+  back **`200 OK` with an HTML sign-in page**, not a redirect - Microsoft's
+  sign-in UI is server-rendered at that URL, the browser only ever redirects
+  *after* the user submits credentials inside that page.
+
+  `prompt=none` is Entra ID's documented silent-auth probe and is what makes
+  this endpoint **always** answer with a real `302`, verified live against this
+  tenant:
+
+  - **No Entra ID session cookie on the request** (the default - just run it):
+    `302` to `{{redirectUri}}/?error=login_required&error_description=AADSTS50058...`
+  - **A live Entra ID session cookie attached** (see below): `302` to
+    `{{redirectUri}}/?code=<authorization code>&state=...`
+
+  Both are a genuine 302 from Entra ID to the SPA's redirect URI - the first
+  proves the redirect wiring and app registration are correct even with nobody
+  signed in; the second is the code-bearing redirect the SPA's real
+  `loginRedirect()` receives.
+
+  ## Getting the code-bearing 302 (case 2)
+
+  Sign in once at the SPA in a browser, copy the `ESTSAUTHPERSISTENT` cookie for
+  `login.microsoftonline.com` from DevTools (Application -> Cookies), and set it
+  as the `entraSsoCookie` runtime variable. Then run this request - `code=...`
+  now appears in the Location header and the post-response script captures it
+  into `authCode` for request 2.
+
+  ## What to look at
+
+  - **Status: 302** - always, by construction (`prompt=none`); the assertion
+    checks this.
+  - **`Location` header** - always starts with `{{redirectUri}}`. Either
+    `?error=login_required...` (no cookie) or `?code=...` (cookie attached).
+  - The post-response script logs which case you got and, for the code case,
+    extracts `code` into `authCode` so request 2 is ready to run immediately.
+
+  The `code_verifier` generated for this request is stashed in `codeVerifier`.
+  Request 2 needs it - that pairing IS PKCE. Do not re-run this request between
+  1 and 2, or the verifier will no longer match the code.
+}
+
+script:pre-request {
+  // PKCE (RFC 7636).
+  //
+  // Bruno's QuickJS sandbox has no `crypto.subtle` and no `TextEncoder`, and
+  // Node's `crypto` module is not loadable. What IS available: `crypto.randomBytes`
+  // as a global, plus `crypto-js` and `buffer` via the moduleWhitelist in
+  // bruno.json. Probed, not assumed.
+  const CryptoJS = require('crypto-js');
+
+  const b64url = (b64) => b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+  // A fresh high-entropy verifier per authorization request.
+  const verifier = b64url(crypto.randomBytes(32).toString('base64'));
+
+  // SHA-256 the verifier, then base64url the raw digest bytes.
+  const challenge = b64url(CryptoJS.SHA256(verifier).toString(CryptoJS.enc.Base64));
+
+  // The verifier must survive until request 2 - that pairing is what proves
+  // to Entra ID that the same client redeeming the code is the one that
+  // requested it. No client secret exists in this stack (NFR-1).
+  bru.setVar('codeVerifier', verifier);
+  bru.setVar('codeChallenge', challenge);
+  bru.setVar('state', b64url(crypto.randomBytes(12).toString('base64')));
+
+  // openid/profile -> id_token. offline_access -> refresh_token.
+  // The API scope -> an access_token with aud = this API, which is what the
+  // resource server's AudienceValidator demands in request 3.
+  bru.setVar('authorizeScope',
+    `openid profile offline_access ${bru.getEnvVar('apiScope')}`);
+
+  // Optional: paste an Entra ID session cookie here to get the real
+  // redirect-to-SPA rather than the redirect-to-login-page.
+  if (!bru.getVar('entraSsoCookie')) bru.setVar('entraSsoCookie', '');
+}
+
+script:post-response {
+  const loc = res.getHeader('location') || '';
+  console.log('302 Location:', loc);
+
+  if (loc.includes('code=')) {
+    // No URL / URLSearchParams in Bruno's QuickJS sandbox - parse by hand.
+    const m = loc.match(/[?&]code=([^&#]+)/);
+    const code = decodeURIComponent(m[1]);
+    bru.setVar('authCode', code);
+    console.log('Code-bearing redirect (session cookie was attached). Captured -> {{authCode}} (len ' + code.length + ')');
+  } else if (loc.includes('error=login_required')) {
+    console.log('login_required redirect (no session cookie sent) - expected default case, still a genuine 302 to the SPA.');
+  } else if (loc) {
+    console.log('Unrecognized redirect shape - inspect Location above.');
+  }
+}
+
+assert {
+  res.status: eq 302
+}
+
+tests {
+  test("Entra ID answers with a 302, never a rendered page, because of prompt=none", function() {
+    expect(res.getStatus()).to.equal(302);
+  });
+
+  test("the 302 carries a Location header", function() {
+    expect(res.getHeader('location')).to.be.a('string').and.not.empty;
+  });
+
+  test("a code-bearing Location was captured into authCode", function() {
+    const loc = res.getHeader('location');
+    if (!/[?&]code=/.test(loc)) return;  // login_required case: nothing to capture
+    expect(bru.getVar('authCode'), 'code in Location but authCode not set').to.be.a('string').and.not.empty;
+  });
+
+  test("Location targets the SPA's registered redirect_uri", function() {
+    const loc = res.getHeader('location');
+    expect(loc.startsWith(bru.getEnvVar('redirectUri')), `Location was not the SPA origin: ${loc}`).to.be.true;
+  });
+}

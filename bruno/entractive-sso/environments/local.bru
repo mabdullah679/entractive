@@ -1,0 +1,18 @@
+vars {
+  tenantId: ef648679-6c97-4eb2-9e11-9cdc9ab31b81
+  spaClientId: 3ffe4fdb-67b6-4f53-8079-00cf6b3c6ef3
+  apiClientId: 541325e9-9a69-4ea3-94a7-19dd23d28990
+  redirectUri: http://localhost:3100
+  apiBaseUrl: http://localhost:8180
+  apiScope: api://541325e9-9a69-4ea3-94a7-19dd23d28990/Api.Access
+  requiredRole: Resource.Admin
+  authority: https://login.microsoftonline.com/ef648679-6c97-4eb2-9e11-9cdc9ab31b81
+}
+
+vars:secret [
+  authCode,
+  codeVerifier,
+  idToken,
+  accessToken,
+  refreshToken
+]
