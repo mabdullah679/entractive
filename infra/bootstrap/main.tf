@@ -21,6 +21,14 @@ variable "github_repo" {
   type    = string
   default = "mabdullah679/entractive"
 }
+# GitHub now issues IMMUTABLE, ID-qualified subjects for this repo
+# (repo:<owner>@<owner-id>/<repo>@<repo-id>:...), observed from a real run's
+# token. Trusting the IDs means a deleted-and-recreated repo with the same
+# name cannot assume these roles.
+variable "github_subject_repo" {
+  type    = string
+  default = "mabdullah679@131607929/entractive@1391818797"
+}
 variable "github_branch" {
   type    = string
   default = "prod-hardening"
@@ -106,8 +114,8 @@ resource "aws_ssm_parameter" "entra" {
 
 # ---- GitHub OIDC roles -------------------------------------------------------
 locals {
-  sub_branch = "repo:${var.github_repo}:ref:refs/heads/${var.github_branch}"
-  sub_pr     = "repo:${var.github_repo}:pull_request"
+  sub_branch = "repo:${var.github_subject_repo}:ref:refs/heads/${var.github_branch}"
+  sub_pr     = "repo:${var.github_subject_repo}:pull_request"
 }
 
 data "aws_iam_policy_document" "trust_apply" {
