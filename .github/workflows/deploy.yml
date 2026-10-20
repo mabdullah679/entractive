@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: entractive-deploy
+  group: entractive-${{ github.event_name }}
   cancel-in-progress: false
 
 env:
