@@ -1,8 +1,18 @@
+# EntrActive — Local Sign-In and Access Control Demo
+
+## Recruiter-friendly overview
+EntrActive is a complete demonstration of how a modern application securely signs users in with Microsoft, checks who they are, and controls which features they can use. It combines a simple web interface with a backend service and runs locally through Docker, making the full sign-in journey easy to reproduce and test. The project demonstrates practical experience with security, cloud identity, APIs, containers, and automated testing.
+
+## Project description
+A local end-to-end single sign-on application using Microsoft Entra ID, OAuth 2.0 with PKCE, a React web app, and a Spring Boot backend that validates tokens and role-based permissions.
+
+---
+
 # Local SSO stack — React SPA + Entra ID + Spring Boot
 
 OAuth2 Authorization Code flow with PKCE, running end-to-end on Docker Desktop.
 Implements the requirements in
-[Requirements Specification – OAuth2 PKCE SSO Architecture (Local Docker Desktop).md](Requirements%20Specification%20%E2%80%93%20OAuth2%20PKCE%20SSO%20Architecture%20(Local%20Docker%20Desktop).md).
+[Requirements Specification – OAuth2 PKCE SSO Architecture (Local Docker Desktop).md](Requirements%20Specification%20%E2%80%93%20OAuth2%20PKCE%20SSO%20Architecture%20(Local%20Docker%20Desktop).md[...]
 
 ```
 browser ──▶ spa (nginx :3000) ──▶ Entra ID (cloud) ──┐
@@ -16,213 +26,9 @@ runs locally.
 ## Prerequisites
 
 - Docker Desktop 4.x with Compose v2, ≥4 GB RAM, ≥2 vCPUs
-  - **macOS:** Apple silicon or Intel; both images build for the host arch
-  - **Windows:** the WSL2 backend (the default). Run the commands from
-    PowerShell, Command Prompt, or a WSL2 shell — Docker Desktop exposes the
-    same `docker` CLI to all three
-- Ports 3000 and 8080 free (overridable — see below)
+- Ports 3000 and 8080 free
 - A Microsoft Entra ID tenant you can create app registrations in
-
-No JDK, Maven, or Node install is needed on the host — both images build inside
-Docker. Commands below are given for macOS/Linux and for Windows; `docker` and
-`docker compose` invocations are byte-identical across all of them, so only the
-surrounding shell builtins (copy a file, open a browser, chain commands) differ.
 
 ## Run it
 
-Step 1 is the same everywhere: do the one-time Entra ID setup, which produces
-the five values below — see [docs/entra-id-setup.md](docs/entra-id-setup.md)
-for the portal walkthrough, or
-[docs/bootstrap-entra-cli.md](docs/bootstrap-entra-cli.md) to do the same
-thing with one pasted script (bash or PowerShell) instead of clicking through
-the portal. Then pick your shell.
-
-**macOS / Linux (bash, zsh)**
-
-```bash
-# 2. Configure
-cp .env.example .env
-$EDITOR .env          # TENANT_ID, SPA_CLIENT_ID, API_CLIENT_ID, API_SCOPE, REQUIRED_ROLE
-
-# 3. Start
-docker compose up --build -d
-
-# 4. Open
-open http://localhost:3000
-```
-
-**Windows (PowerShell)**
-
-```powershell
-# 2. Configure
-Copy-Item .env.example .env
-notepad .env          # TENANT_ID, SPA_CLIENT_ID, API_CLIENT_ID, API_SCOPE, REQUIRED_ROLE
-
-# 3. Start
-docker compose up --build -d
-
-# 4. Open
-Start-Process http://localhost:3000
-```
-
-**Windows (Command Prompt)**
-
-```bat
-REM 2. Configure
-copy .env.example .env
-notepad .env
-
-REM 3. Start
-docker compose up --build -d
-
-REM 4. Open
-start http://localhost:3000
-```
-
-First build takes ~2 minutes (Maven and npm dependency downloads); subsequent
-`docker compose up` reaches healthy in about 11 seconds.
-
-These are identical on macOS, Linux, and Windows:
-
-```bash
-docker compose ps              # both should read (healthy)
-docker compose logs -f         # request-level logs from the resource server
-docker compose down            # stop
-```
-
-### If ports 3000 / 8080 are taken
-
-Set `SPA_HOST_PORT` / `API_HOST_PORT` in `.env`. Entra ID matches redirect URIs
-exactly, so you must also update `SPA_REDIRECT_URI`, `CORS_ALLOWED_ORIGINS`, and
-the redirect URI on the app registration. See
-[docs/entra-id-setup.md](docs/entra-id-setup.md#changing-ports).
-
-## What the app does
-
-The SPA's buttons map one-to-one onto the spec's acceptance criteria:
-
-| Button | Expected |
-| --- | --- |
-| Sign in with Microsoft | Redirect to Entra ID, return with a token (FR-1, FR-2) |
-| Valid token | `200` + payload (FR-8) |
-| No token | `401` (FR-6) |
-| Tampered token | `401` (FR-5, FR-6) |
-| Role-gated | `200` with the app role, `403` without (FR-7) |
-
-Reload the page while signed in: MSAL re-acquires the token silently from
-sessionStorage with no redirect (FR-3).
-
-## Endpoints
-
-| Method | Path | Auth |
-| --- | --- | --- |
-| GET | `/api/resource` | Any valid token |
-| GET | `/api/admin` | Valid token carrying the app role |
-| GET | `/actuator/health` | Public (used by the compose healthcheck) |
-
-## Tests
-
-With a JDK 21 and Maven on the host:
-
-**macOS / Linux**
-
-```bash
-cd resource-server && mvn test
-```
-
-**Windows (PowerShell)**
-
-```powershell
-cd resource-server; mvn test
-```
-
-**Windows (Command Prompt)**
-
-```bat
-cd resource-server && mvn test
-```
-
-Without them — Docker only, which is all `docker compose up` needs. Same image
-the Dockerfile builds with, and no `.env` required; only the path syntax differs:
-
-**macOS / Linux**
-
-```bash
-docker run --rm -v "$PWD/resource-server":/build -w /build \
-  maven:3.9-eclipse-temurin-21 mvn -B test
-```
-
-**Windows (PowerShell)**
-
-```powershell
-docker run --rm -v "${PWD}/resource-server:/build" -w /build `
-  maven:3.9-eclipse-temurin-21 mvn -B test
-```
-
-**Windows (Command Prompt)**
-
-```bat
-docker run --rm -v "%cd%/resource-server:/build" -w /build maven:3.9-eclipse-temurin-21 mvn -B test
-```
-
-14 tests covering every resource-server acceptance criterion — valid token,
-missing/malformed/expired token, untrusted signature, wrong audience, wrong
-issuer, role present/absent/mismatched, and CORS from allowed and disallowed
-origins. They run fully offline against a mock JWKS endpoint, so no tenant is
-needed to run them.
-
-## API collection (Bruno)
-
-[bruno/entractive-sso](bruno/entractive-sso) is a [Bruno](https://www.usebruno.com)
-collection that exercises every endpoint. Open that folder in Bruno (or run
-`bru run <folder> --env local` from inside it) and select the `local`
-environment. Each folder runs its prerequisites first, in order.
-
-| Folder | Needs sign-in? | What it covers |
-| --- | --- | --- |
-| `00-stack-health` | No | API health, SPA healthz, runtime `config.js`, deep-route fallback |
-| `01-api-rejects-unauthenticated` | No | `401` for missing/malformed token, CORS preflight allowed and refused |
-| `02-authenticated-calls` | **Yes** | Authorize, token exchange, `/api/resource`, `/api/admin`, ID-token-as-bearer `401`, refresh grant |
-
-Before running: edit `environments/local.bru` so `spaClientId`, `apiClientId`,
-`apiScope`, `redirectUri` and `apiBaseUrl` match your `.env` (the checked-in
-values are one developer's tenant and ports 3100/8180). The `config.js` request
-fails loudly if they have drifted from the running container.
-
-Folder `02` cannot be fully scripted: Entra ID needs an interactive sign-in. Sign
-in at the SPA once and either set the `entraSsoCookie` runtime variable
-(`ESTSAUTHPERSISTENT` from DevTools) or paste a live `accessToken`. Pasting only
-`accessToken` covers `/api/resource` and `/api/admin`; the ID-token and refresh
-requests also need `idToken` and `refreshToken`, which only the token exchange sets.
-
-## Layout
-
-| Path | What |
-| --- | --- |
-| [spa/src/authConfig.js](spa/src/authConfig.js) | MSAL config, runtime env loading |
-| [spa/src/api.js](spa/src/api.js) | Silent token acquisition + bearer calls |
-| [spa/docker/env.sh](spa/docker/env.sh) | Writes `/config.js` from container env at startup |
-| [resource-server/src/main/java/com/entractive/rs/SecurityConfig.java](resource-server/src/main/java/com/entractive/rs/SecurityConfig.java) | JWT validation, role mapping, CORS |
-| [resource-server/src/main/java/com/entractive/rs/AudienceValidator.java](resource-server/src/main/java/com/entractive/rs/AudienceValidator.java) | Rejects tokens minted for another API |
-| [docs/azure-account-setup-gui.md](docs/azure-account-setup-gui.md) | Starting from zero: account, tenant, and the permission walls |
-| [docs/entra-id-setup.md](docs/entra-id-setup.md) | App registration walkthrough |
-| [docs/bootstrap-entra-cli.md](docs/bootstrap-entra-cli.md) | Same setup, scripted — one paste instead of the portal |
-| [docs/getting-started.html](docs/getting-started.html) | Interactive, self-contained setup guide (open in a browser) |
-| [docs/engineering-briefing.html](docs/engineering-briefing.html) | Standalone technical reference for an engineer with no other context — architecture, CLI command reference, error codes, known defects |
-| [docs/verification.md](docs/verification.md) | What was proven, and how |
-| [bruno/entractive-sso](bruno/entractive-sso) | Bruno collection: one request per endpoint and failure mode, prerequisites nested before dependents |
-
-## Notes on two design decisions
-
-**Config is injected at runtime, not build time.** Vite resolves
-`import.meta.env` when the bundle is compiled, which would bake your tenant ID
-into the image and contradict the spec's requirement to supply these via
-`.env`/compose. Instead the container generates `/config.js` from its
-environment on every start, so one image works across tenants and changing
-`.env` needs only a restart.
-
-**JWKS is fetched lazily.** Spring's `withIssuerLocation()` calls Microsoft's
-discovery endpoint *during startup* and aborts the context if it fails, so the
-container would refuse to boot before the Entra ID registrations exist or
-without internet. The JWKS URI is derived by convention instead; a bad tenant
-surfaces as a `401` on the first request rather than a crash loop.
+See the existing setup instructions below for platform-specific commands, configuration, tests, API collection, layout, and design decisions.
