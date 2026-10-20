@@ -100,6 +100,8 @@ class SpaServingTest {
     @DisplayName("A missing file (has an extension) is a real 404, not index.html")
     void missingFileIs404() throws Exception {
         mvc.perform(get("/assets/nope.js")).andExpect(status().isNotFound());
+        mvc.perform(get("/missing.js")).andExpect(status().isNotFound());
+        mvc.perform(get("/deep/missing.css")).andExpect(status().isNotFound());
     }
 
     @Test
