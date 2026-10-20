@@ -25,7 +25,9 @@ if [ ! -f "$REPO_ROOT/docker-compose.yml" ]; then
   echo "Run this from the repo root, or pass the path: bash bootstrap-entra.sh /path/to/entractive" >&2
   exit 1
 fi
-ENV_FILE="$REPO_ROOT/.env"
+# ENV_OUT lets a caller write the generated values somewhere other than the
+# repo root (e.g. when provisioning a second, deployed set of registrations).
+ENV_FILE="${ENV_OUT:-$REPO_ROOT/.env}"
 
 log()  { printf '\033[1;34m==>\033[0m %s\n' "$1"; }
 ok()   { printf '\033[1;32m  ✓\033[0m %s\n' "$1"; }
@@ -57,7 +59,10 @@ ok "User object ID: $USER_OBJECT_ID"
 # ---------------------------------------------------------------------------
 # 3. API app registration (idempotent: find-or-create)
 # ---------------------------------------------------------------------------
-API_APP_NAME="sso-resource-server"
+# Names are overridable so a second, independent set of registrations (e.g. for a
+# cloud deployment) can be created without finding/reusing the local-dev pair:
+#   API_APP_NAME=sso-aws-resource-server SPA_APP_NAME=sso-aws-spa bash bootstrap-entra.sh
+API_APP_NAME="${API_APP_NAME:-sso-resource-server}"
 API_ROLE_VALUE="Resource.Admin"
 API_SCOPE_VALUE="Api.Access"
 
@@ -142,7 +147,7 @@ fi
 # ---------------------------------------------------------------------------
 # 4. SPA app registration (idempotent: find-or-create)
 # ---------------------------------------------------------------------------
-SPA_APP_NAME="sso-spa"
+SPA_APP_NAME="${SPA_APP_NAME:-sso-spa}"
 SPA_PORT="${SPA_HOST_PORT:-3000}"
 SPA_REDIRECT_URI="http://localhost:${SPA_PORT}"
 
