@@ -9,11 +9,11 @@ data "aws_ecr_repository" "api" {
 
 # Owned by the bootstrap stack and by the operator (values are Entra IDs).
 data "aws_ssm_parameter" "entra" {
-  for_each = toset(["tenant-id", "api-client-id"])
+  for_each = toset(["tenant-id", "spa-client-id", "api-client-id", "api-scope"])
   name     = "${local.ssm_prefix}/${each.key}"
 }
 
-# Shared secret between CloudFront and the ALB: the ALB only forwards requests
+# Shared secret between API Gateway and the ALB: the ALB only forwards requests
 # that carry it, so hitting the ALB's public DNS name directly gets a 403.
 resource "random_password" "origin_verify" {
   length  = 40
@@ -66,7 +66,7 @@ resource "aws_lb_listener" "http" {
   }
 }
 
-resource "aws_lb_listener_rule" "from_cloudfront" {
+resource "aws_lb_listener_rule" "from_gateway" {
   listener_arn = aws_lb_listener.http.arn
   priority     = 10
   action {
@@ -81,7 +81,7 @@ resource "aws_lb_listener_rule" "from_cloudfront" {
   }
   condition {
     path_pattern {
-      values = ["/api/*", "/actuator/health", "/actuator/health/*"]
+      values = ["/*"]
     }
   }
 }
@@ -143,18 +143,20 @@ resource "aws_ecs_task_definition" "api" {
     image        = local.image
     essential    = true
     portMappings = [{ containerPort = 8080, protocol = "tcp" }]
-    # Container runs as uid 10001 (see resource-server/Dockerfile); a read-only
-    # root FS is safe because Spring Boot only needs /tmp.
-    readonlyRootFilesystem = false
-    stopTimeout            = 30
+    # Runs as uid 10001 (Dockerfile.aws). The entrypoint writes /app/spa/config.js
+    # at start, so the root filesystem stays writable.
+    stopTimeout = 30
     environment = [
-      { name = "CORS_ALLOWED_ORIGINS", value = "https://${aws_cloudfront_distribution.main.domain_name}" },
+      { name = "CORS_ALLOWED_ORIGINS", value = local.public_url },
+      { name = "PUBLIC_URL", value = local.public_url },
       { name = "AZURE_REQUIRED_ROLE", value = var.required_role },
       { name = "LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY_OAUTH2_SERVER_RESOURCE", value = "INFO" },
     ]
     secrets = [
       { name = "AZURE_TENANT_ID", valueFrom = data.aws_ssm_parameter.entra["tenant-id"].arn },
       { name = "AZURE_CLIENT_ID", valueFrom = data.aws_ssm_parameter.entra["api-client-id"].arn },
+      { name = "SPA_CLIENT_ID", valueFrom = data.aws_ssm_parameter.entra["spa-client-id"].arn },
+      { name = "API_SCOPE", valueFrom = data.aws_ssm_parameter.entra["api-scope"].arn },
     ]
     healthCheck = {
       command     = ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/actuator/health/liveness | grep -q UP || exit 1"]
@@ -198,5 +200,5 @@ resource "aws_ecs_service" "api" {
     container_name   = "resource-server"
     container_port   = 8080
   }
-  depends_on = [aws_lb_listener_rule.from_cloudfront]
+  depends_on = [aws_lb_listener_rule.from_gateway]
 }

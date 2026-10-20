@@ -1,0 +1,34 @@
+# Production image for AWS: the Spring Boot resource server that ALSO serves the
+# built React SPA (one origin, one HTTPS URL, no CORS). Build from the repo root:
+#   docker build -f Dockerfile.aws -t entractive .
+# The local docker-compose stack is unchanged and still uses spa/Dockerfile and
+# resource-server/Dockerfile separately.
+
+# ---- SPA build -------------------------------------------------------------
+FROM node:20-alpine AS spa
+WORKDIR /app
+COPY spa/package.json spa/package-lock.json ./
+RUN npm ci
+COPY spa/ .
+RUN npm run build
+
+# ---- API build -------------------------------------------------------------
+FROM maven:3.9-eclipse-temurin-21 AS api
+WORKDIR /build
+COPY resource-server/pom.xml .
+RUN mvn -B -q dependency:go-offline
+COPY resource-server/src ./src
+RUN mvn -B -q clean package -DskipTests
+
+# ---- runtime ---------------------------------------------------------------
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+RUN apk add --no-cache curl && adduser -D -u 10001 spring \
+    && mkdir -p /app/spa && chown spring /app/spa
+COPY --from=api /build/target/*.jar app.jar
+COPY --from=spa --chown=spring /app/dist /app/spa
+COPY --chmod=0755 resource-server/docker/aws-entrypoint.sh /app/entrypoint.sh
+USER spring
+ENV APP_SPA_DIR=/app/spa
+EXPOSE 8080
+ENTRYPOINT ["/app/entrypoint.sh"]

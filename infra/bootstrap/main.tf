@@ -201,7 +201,7 @@ data "aws_iam_policy_document" "apply" {
   statement {
     sid = "Workload"
     actions = [
-      "ec2:*", "elasticloadbalancing:*", "ecs:*", "cloudfront:*",
+      "ec2:*", "elasticloadbalancing:*", "ecs:*", "apigateway:*",
       "logs:*", "application-autoscaling:*", "ecr:GetAuthorizationToken",
     ]
     resources = ["*"]
@@ -211,10 +211,17 @@ data "aws_iam_policy_document" "apply" {
     actions   = ["ecr:BatchCheckLayerAvailability", "ecr:InitiateLayerUpload", "ecr:UploadLayerPart", "ecr:CompleteLayerUpload", "ecr:PutImage", "ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer", "ecr:DescribeImages", "ecr:DescribeRepositories", "ecr:ListTagsForResource"]
     resources = [aws_ecr_repository.api.arn]
   }
+  # Only needed while tearing down the abandoned CloudFront/S3 variant (see
+  # infra/stack/edge.tf); kept so those leftovers can be destroyed by the pipeline.
   statement {
-    sid       = "SpaBucket"
+    sid       = "LegacySpaBucket"
     actions   = ["s3:*"]
     resources = ["arn:aws:s3:::${var.name_prefix}-spa-*", "arn:aws:s3:::${var.name_prefix}-spa-*/*"]
+  }
+  statement {
+    sid       = "LegacyCdn"
+    actions   = ["cloudfront:*"]
+    resources = ["*"]
   }
   statement {
     sid       = "SsmRead"

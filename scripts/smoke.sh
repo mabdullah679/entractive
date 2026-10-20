@@ -5,7 +5,7 @@
 #
 # NOT covered (needs a real Entra login): an authenticated 200 from /api/resource.
 #
-# Usage: scripts/smoke.sh https://dxxxx.cloudfront.net [alb-dns-name]
+# Usage: scripts/smoke.sh https://<id>.execute-api.<region>.amazonaws.com [alb-dns-name]
 # Requires: bash, curl, openssl, base64.
 set -uo pipefail
 
@@ -50,7 +50,6 @@ check "GET / is 200"                         200 "$(code "$BASE/")"
 body=$(curl -sS --max-time 20 "$BASE/")
 contains "index.html contains the React root"  'id="root"' "$body"
 check "deep route /some/spa/route falls back to index (200)" 200 "$(code "$BASE/some/spa/route")"
-check "http:// redirects to https (301)"     301 "$(code "http://${BASE#https://}/")"
 hdrs=$(curl -sSI --max-time 20 "$BASE/")
 contains "HSTS header present"               'strict-transport-security' "$(printf '%s' "$hdrs" | tr 'A-Z' 'a-z')"
 contains "CSP header present"                'content-security-policy' "$(printf '%s' "$hdrs" | tr 'A-Z' 'a-z')"
@@ -79,11 +78,12 @@ if printf '%s' "$ctype" | grep -qi 'text/html'; then echo "FAIL  401 from /api c
 
 if [ -n "$ALB" ]; then
   echo "== Origin lock: the ALB refuses requests that did not come through CloudFront"
-  # The ALB security group only admits CloudFront IPs, so a direct request from
-  # here normally times out (000); a 403 is also acceptable. A 200/401 would mean
-  # the lock is open.
-  a=$(code --max-time 8 "http://$ALB/actuator/health")
-  if [ "$a" = 000 ] || [ "$a" = 403 ]; then echo "PASS  direct ALB request blocked ($a)"; else echo "FAIL  direct ALB request returned $a"; fail=1; fi
+  # Without the secret header API Gateway injects, the listener answers 403 for
+  # every path. A 200/401 here would mean the lock is open.
+  for path in /actuator/health /api/resource /; do
+    a=$(code --max-time 10 "http://$ALB$path")
+    if [ "$a" = 403 ]; then echo "PASS  direct ALB $path blocked ($a)"; else echo "FAIL  direct ALB $path returned $a"; fail=1; fi
+  done
 fi
 
 echo

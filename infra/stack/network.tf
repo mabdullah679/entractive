@@ -46,24 +46,24 @@ resource "aws_default_security_group" "default" {
   vpc_id = aws_vpc.main.id
 }
 
-data "aws_ec2_managed_prefix_list" "cloudfront" {
-  name = "com.amazonaws.global.cloudfront.origin-facing"
-}
-
 resource "aws_security_group" "alb" {
   name        = "${var.name_prefix}-alb"
-  description = "ALB: HTTP from CloudFront origin-facing IPs only"
+  description = "ALB: HTTP from API Gateway (no published IP range); the listener also requires the X-Origin-Verify secret header"
   vpc_id      = aws_vpc.main.id
   tags        = { Name = "${var.name_prefix}-alb" }
 }
 
-resource "aws_vpc_security_group_ingress_rule" "alb_from_cloudfront" {
+# API Gateway HTTP APIs call a public ALB from AWS-owned addresses that are not
+# published, so the network layer cannot be narrowed further. The ALB listener's
+# default action is a 403; only requests carrying the secret header API Gateway
+# injects are forwarded (see api.tf). smoke.sh proves the direct-hit 403.
+resource "aws_vpc_security_group_ingress_rule" "alb_http" {
   security_group_id = aws_security_group.alb.id
-  prefix_list_id    = data.aws_ec2_managed_prefix_list.cloudfront.id
+  cidr_ipv4         = "0.0.0.0/0"
   ip_protocol       = "tcp"
   from_port         = 80
   to_port           = 80
-  description       = "CloudFront origin-facing prefix list"
+  description       = "HTTP; gated by header secret at the listener"
 }
 
 resource "aws_security_group" "task" {

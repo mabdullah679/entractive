@@ -1,0 +1,10 @@
+.git
+.github
+infra
+docs
+bruno
+**/node_modules
+**/target
+**/dist
+**/.env
+**/.env.*
