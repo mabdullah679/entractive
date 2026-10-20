@@ -69,7 +69,8 @@ jobs:
         working-directory: infra/stack
         run: |
           terraform init -input=false
-          terraform plan -input=false -no-color -lock-timeout=120s -var "image_tag=${GITHUB_SHA}"
+          # -lock=false: speculative, read-only plan; must not contend with the deploy run for the state lock
+          terraform plan -input=false -no-color -lock=false -var "image_tag=${GITHUB_SHA}"
 
   deploy:
     name: apply (deploy)

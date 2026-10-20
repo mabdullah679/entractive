@@ -58,8 +58,8 @@ Not contained in AWS: the Entra ID tenant and app registrations. The IDs live in
 | URL pattern | `https://<id>.execute-api.ap-southeast-2.amazonaws.com` (this run: `i33sbovbcd`) |
 | Deployed commit | `98c81e2`, run `39395659656` (GitHub Actions: test, plan, apply, smoke all green) |
 | Smoke test (`scripts/smoke.sh`, run by the pipeline) | all checks passed: `/` 200 and contains the React root, deep route falls back to the app, HSTS/CSP/nosniff headers, `config.js` points at the deployed origin, `/actuator/health` UP, no token, garbage token, `alg=none` token and a forged RS256 token (wrong key, wrong audience) all returned 401, direct hits on the ALB DNS name returned 403 |
-| Real sign-in | Done once in a real browser by the owner's already-signed-in Microsoft session: the SPA redirected to Entra ID and back, "Valid token" returned HTTP 200 from `/api/resource`, "Tampered token" 401, "Role-gated" 200 from `/api/admin` (role `Resource.Admin`). The resource server's CloudWatch log shows `GET /api/resource -> 200`, `GET /api/resource -> 401` and `GET /api/admin -> 200`, all with a bearer token present. |
-| Status | Running at the time of writing; to be destroyed after review to save cost (destroy commands below), after which the URL stops working. |
+| Real sign-in | Sign-in completed by the owner personally on 2026-10-20 (owner-attested). The resource server's CloudWatch log showed `GET /api/resource -> 200` and `GET /api/admin -> 200` with a bearer token present, but a log line cannot say who signed in, so the log is corroboration, not proof of identity. In the same session "Tampered token" returned 401. |
+| Status | Verified live on 2026-10-20, then torn down the same day to save cost (stack and bootstrap both destroyed). The URL no longer responds. The two Entra app registrations were left in place; the deployment's redirect URI was removed from `sso-aws-spa`. |
 
 Resources created (all prefixed `pf-entractive-`, tagged `project=portfolio`, `repo=entractive`, `managed-by=terraform`): 1 VPC with 2 public subnets, internet gateway and route table (no NAT gateway); 2 security groups; 1 ALB with listener, rule and target group; 1 ECS cluster, task definition and service (Fargate, 0.25 vCPU, 1 GB); 1 execution role; 1 CloudWatch log group (7-day retention); 1 API Gateway HTTP API with stage, 2 integrations and 2 routes; plus, from the bootstrap step, a state bucket, an ECR repository, 4 SSM parameters and 2 GitHub OIDC roles.
 
@@ -76,7 +76,7 @@ cd ../bootstrap    && terraform destroy
 
 ## Rebuild with one command
 
-Re-run the pipeline from the branch (`gh workflow run ci-cd --ref prod-hardening`, or push to `prod-hardening`). It builds the image, applies Terraform, and smoke-tests the result. Prerequisite (once): the bootstrap in `infra/bootstrap` has been applied and the four SSM parameters hold real values:
+The bootstrap was also destroyed, so a rebuild is two steps. (1) With AWS credentials for the account and Terraform 1.10 or newer: `cd infra/bootstrap && terraform init && terraform apply` (needs the existing GitHub OIDC provider and the `portfolio-ci-boundary` policy; the role trust pins this repo's immutable GitHub IDs in `github_subject_repo`). (2) Set the four SSM parameters, then re-run the pipeline (`gh workflow run ci-cd --ref prod-hardening`, or push to `prod-hardening`); it builds the image, applies Terraform and smoke-tests the result.
 
 ```
 aws ssm put-parameter --name /pf-entractive/tenant-id     --type String --overwrite --value <tenant id>
@@ -133,6 +133,15 @@ No code change is needed to point the deployment at a different tenant: update t
 - **ALB is public with a header lock.** API Gateway's outbound addresses are not published, so the security group cannot be narrowed to them. The listener returns 403 unless the secret header is present. The header lives in Terraform state (encrypted S3).
 - **SPA served by the API container.** One origin means no CORS and one image to deploy; the cost is that a SPA change redeploys the API.
 - **No NAT gateway.** The task has a public IP, inbound only from the ALB security group, outbound only on 443.
+
+## AWS account notes
+
+- CloudFront cannot be created on this account until AWS verifies it (contact AWS Support); that is why the edge is API Gateway.
+- The account's VPC quota was raised from 5 to 10 during this work (the six projects had used all 5).
+
+## Known issue: red check on the pull request (fix unproven)
+
+Pull-request runs of `ci-cd` failed at "plan (read-only role)" on commits `98c81e2` (run 39395664651) and `3db1240` (run 39401060143), while the push runs succeeded. The role was assumed fine in both. The log error is `Error acquiring the state lock ... PreconditionFailed ... GetObject 404`: the PR run and the push run start within seconds of each other and contend for the S3 lock file while the push run's plan/apply holds or releases it. The earlier hypothesis (the plan role's trust not matching the pull_request subject) is contradicted by pull-request runs that passed on commits `5275a4d`, `5f93a2c` and `fcfa232`. A local attempt to reproduce the race with 3 concurrent plans (and then 3 x 6 back-to-back plans) did not fail, so the race was not reproduced. The change (`terraform plan -lock=false` for the read-only speculative plan) is unproven, not exercised against live AWS (the stack was already destroyed), and was pushed with `[skip ci]`.
 
 ## Not established
 
