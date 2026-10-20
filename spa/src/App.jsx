@@ -55,7 +55,7 @@ export default function App() {
               <dt>Name</dt><dd>{account?.name ?? '—'}</dd>
               <dt>Username</dt><dd>{account?.username ?? '—'}</dd>
               <dt>Tenant</dt><dd><code>{account?.tenantId ?? '—'}</code></dd>
-              <dt>API base</dt><dd><code>{apiBaseUrl}</code></dd>
+              <dt>API base</dt><dd><code>{apiBaseUrl || "(same origin)"}</code></dd>
             </dl>
             <button onClick={signOut}>Sign out</button>
           </section>
