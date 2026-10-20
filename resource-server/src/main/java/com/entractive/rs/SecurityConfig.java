@@ -24,6 +24,8 @@ import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
+import org.springframework.security.web.util.matcher.AnyRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -35,17 +37,23 @@ public class SecurityConfig {
     private final String tenantId;
     private final String jwksUri;
     private final String audience;
+    private final String requiredScope;
     private final List<String> allowedOrigins;
+    private final boolean spaEnabled;
 
     SecurityConfig(
             @Value("${app.auth.tenant-id}") String tenantId,
             @Value("${app.auth.jwk-set-uri}") String jwksUri,
             @Value("${app.auth.audience}") String audience,
-            @Value("${app.cors.allowed-origins}") List<String> allowedOrigins) {
+            @Value("${app.auth.required-scope}") String requiredScope,
+            @Value("${app.cors.allowed-origins}") List<String> allowedOrigins,
+            @Value("${app.spa.dir:}") String spaDir) {
         this.tenantId = tenantId;
         this.jwksUri = jwksUri;
         this.audience = audience;
+        this.requiredScope = requiredScope;
         this.allowedOrigins = allowedOrigins;
+        this.spaEnabled = !spaDir.isBlank();
     }
 
     @Bean
@@ -56,11 +64,40 @@ public class SecurityConfig {
             // credential, so CSRF protection is not applicable (NFR-2).
             .csrf(csrf -> csrf.disable())
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
+            .authorizeHttpRequests(auth -> {
                 // CORS preflight carries no Authorization header by design.
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/actuator/health/**").permitAll()
-                .anyRequest().authenticated())
+                auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
+                auth.requestMatchers("/actuator/health/**").permitAll();
+                // Delegated-permission guard: a token that is valid for this API
+                // (signature, issuer, audience) but was not granted the API scope
+                // is authenticated yet not authorized -> 403, not 200.
+                auth.requestMatchers("/api/**").hasAuthority("SCOPE_" + requiredScope);
+                // The SPA's static files are public by nature. This rule sits AFTER
+                // the /api/** guard on purpose: first match wins.
+                if (spaEnabled) {
+                    auth.requestMatchers(HttpMethod.GET, "/**").permitAll();
+                    auth.requestMatchers(HttpMethod.HEAD, "/**").permitAll();
+                }
+                auth.anyRequest().authenticated();
+            })
+            .headers(h -> h
+                .contentSecurityPolicy(csp -> csp.policyDirectives(String.join("; ",
+                    "default-src 'self'",
+                    "script-src 'self'",
+                    "style-src 'self' 'unsafe-inline'",
+                    "img-src 'self' data:",
+                    "connect-src 'self' https://login.microsoftonline.com https://*.microsoftonline.com",
+                    "frame-src https://login.microsoftonline.com",
+                    "base-uri 'self'",
+                    "form-action 'self' https://login.microsoftonline.com",
+                    "frame-ancestors 'none'")))
+                .frameOptions(f -> f.deny())
+                .referrerPolicy(r -> r.policy(ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                // TLS terminates at API Gateway / CloudFront, so the app never sees
+                // a secure request itself; the public endpoint is https-only.
+                .httpStrictTransportSecurity(hsts -> hsts
+                    .requestMatcher(AnyRequestMatcher.INSTANCE)
+                    .maxAgeInSeconds(31536000).includeSubDomains(true)))
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt
                     .decoder(jwtDecoder())

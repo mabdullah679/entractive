@@ -43,6 +43,7 @@ class ResourceServerAcceptanceTest {
         registry.add("app.auth.tenant-id", () -> TestTokens.TENANT_ID);
         registry.add("app.auth.jwk-set-uri", () -> MOCK_IDP.baseUrl() + "/discovery/v2.0/keys");
         registry.add("app.auth.audience", () -> TestTokens.AUDIENCE);
+        registry.add("app.auth.required-scope", () -> "Api.Access");
         registry.add("app.auth.required-role", () -> "Resource.Admin");
         registry.add("app.cors.allowed-origins", () -> "http://localhost:3000");
     }
@@ -114,6 +115,55 @@ class ResourceServerAcceptanceTest {
         // tenant hit this and was wrongly rejected before TenantIssuerValidator.
         mvc.perform(get("/api/resource").header("Authorization", "Bearer " + TestTokens.validWithStsIssuer()))
            .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Scope guard: valid token with NO scp claim returns 403 on /api/resource")
+    void noScopeReturns403() throws Exception {
+        mvc.perform(get("/api/resource").header("Authorization", "Bearer " + TestTokens.noScope()))
+           .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Scope guard: valid token with a different scope returns 403 on /api/resource")
+    void wrongScopeReturns403() throws Exception {
+        mvc.perform(get("/api/resource").header("Authorization", "Bearer " + TestTokens.wrongScope()))
+           .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Scope guard: required scope among several is accepted")
+    void multipleScopesReturns200() throws Exception {
+        mvc.perform(get("/api/resource").header("Authorization", "Bearer " + TestTokens.multipleScopes()))
+           .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Scope guard also covers /api/admin: role alone is not enough")
+    void roleWithoutScopeReturns403() throws Exception {
+        // A token carrying the admin role but no API scope must not get in.
+        mvc.perform(get("/api/admin")
+                .header("Authorization", "Bearer " + TestTokens.validRoleNoScope(List.of("Resource.Admin"))))
+           .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Readiness and liveness probes are public and UP")
+    void probesArePublic() throws Exception {
+        mvc.perform(get("/actuator/health/readiness"))
+           .andExpect(status().isOk())
+           .andExpect(jsonPath("$.status").value("UP"));
+        mvc.perform(get("/actuator/health/liveness"))
+           .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Other actuator endpoints are not exposed")
+    void otherActuatorEndpointsHidden() throws Exception {
+        mvc.perform(get("/actuator/env"))
+           .andExpect(status().isUnauthorized());
+        mvc.perform(get("/actuator/env").header("Authorization", "Bearer " + TestTokens.validNoRoles()))
+           .andExpect(status().is4xxClientError());
     }
 
     @Test

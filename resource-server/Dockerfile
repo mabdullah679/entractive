@@ -16,4 +16,5 @@ RUN apk add --no-cache curl && adduser -D -u 10001 spring
 COPY --from=build /build/target/*.jar app.jar
 USER spring
 EXPOSE 8080
-ENTRYPOINT ["java","-XX:MaxRAMPercentage=75","-jar","/app/app.jar"]
+# Container-aware heap; exit (and let the orchestrator restart) rather than limp on after an OOM.
+ENTRYPOINT ["java","-XX:MaxRAMPercentage=70","-XX:+ExitOnOutOfMemoryError","-jar","/app/app.jar"]
