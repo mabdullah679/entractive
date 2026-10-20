@@ -16,6 +16,8 @@ app:
     jwk-set-uri: ${AZURE_JWK_SET_URI:https://login.microsoftonline.com/${AZURE_TENANT_ID}/discovery/v2.0/keys}
     # Expected `aud` claim: this API's own client ID (Section 5).
     audience: ${AZURE_CLIENT_ID}
+    # Delegated scope (scp claim) every /api/** call must carry.
+    required-scope: ${AZURE_REQUIRED_SCOPE:Api.Access}
     # App role required by GET /api/admin (FR-7).
     required-role: ${AZURE_REQUIRED_ROLE:Resource.Admin}
   cors:

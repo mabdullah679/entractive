@@ -35,16 +35,19 @@ public class SecurityConfig {
     private final String tenantId;
     private final String jwksUri;
     private final String audience;
+    private final String requiredScope;
     private final List<String> allowedOrigins;
 
     SecurityConfig(
             @Value("${app.auth.tenant-id}") String tenantId,
             @Value("${app.auth.jwk-set-uri}") String jwksUri,
             @Value("${app.auth.audience}") String audience,
+            @Value("${app.auth.required-scope}") String requiredScope,
             @Value("${app.cors.allowed-origins}") List<String> allowedOrigins) {
         this.tenantId = tenantId;
         this.jwksUri = jwksUri;
         this.audience = audience;
+        this.requiredScope = requiredScope;
         this.allowedOrigins = allowedOrigins;
     }
 
@@ -60,6 +63,10 @@ public class SecurityConfig {
                 // CORS preflight carries no Authorization header by design.
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/actuator/health/**").permitAll()
+                // Delegated-permission guard: a token that is valid for this API
+                // (signature, issuer, audience) but was not granted the API scope
+                // is authenticated yet not authorized -> 403, not 200.
+                .requestMatchers("/api/**").hasAuthority("SCOPE_" + requiredScope)
                 .anyRequest().authenticated())
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt

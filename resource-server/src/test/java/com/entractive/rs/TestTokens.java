@@ -67,6 +67,10 @@ final class TestTokens {
         return sign(builder().claim("roles", roles).build());
     }
 
+    static String validRoleNoScope(List<String> roles) {
+        return sign(base().claim("scp", null).claim("roles", roles).build());
+    }
+
     static String validNoRoles() {
         return sign(builder().build());
     }
@@ -74,6 +78,21 @@ final class TestTokens {
     /** A token in the v1.0/STS issuer shape — the real-world regression case. */
     static String validWithStsIssuer() {
         return sign(base().issuer(ISSUER_STS).build());
+    }
+
+    /** Signature/issuer/audience all valid, but no delegated scope (scp) at all. */
+    static String noScope() {
+        return sign(base().claim("scp", null).build());
+    }
+
+    /** Valid in every respect except it carries a scope this API does not require. */
+    static String wrongScope() {
+        return sign(base().claim("scp", "Some.Other.Scope").build());
+    }
+
+    /** Several space-delimited scopes, one of which is the required one. */
+    static String multipleScopes() {
+        return sign(base().claim("scp", "User.Read Api.Access offline_access").build());
     }
 
     static String expired() {
