@@ -76,7 +76,7 @@ cd ../bootstrap    && terraform destroy
 
 ## Rebuild with one command
 
-The bootstrap was also destroyed, so a rebuild is two steps. (1) With AWS credentials for the account and Terraform 1.10 or newer: `cd infra/bootstrap && terraform init && terraform apply` (needs the existing GitHub OIDC provider and the `portfolio-ci-boundary` policy; the role trust pins this repo's immutable GitHub IDs in `github_subject_repo`). (2) Set the four SSM parameters, then re-run the pipeline (`gh workflow run ci-cd --ref prod-hardening`, or push to `prod-hardening`); it builds the image, applies Terraform and smoke-tests the result.
+The bootstrap was also destroyed, so a rebuild is three steps. (0) The `prod-hardening` branch was deleted after the merge, and the pipeline's AWS role trusts only that branch (`infra/bootstrap/main.tf`, variable `github_branch`), so recreate it from `main` first: `git push origin main:refs/heads/prod-hardening`. (1) With AWS credentials for the account and Terraform 1.10 or newer: `cd infra/bootstrap && terraform init && terraform apply` (needs the existing GitHub OIDC provider and the `portfolio-ci-boundary` policy; the role trust pins this repo's immutable GitHub IDs in `github_subject_repo`). (2) Set the four SSM parameters, then re-run the pipeline (`gh workflow run ci-cd --ref prod-hardening`, or push to `prod-hardening`); it builds the image, applies Terraform and smoke-tests the result.
 
 ```
 aws ssm put-parameter --name /pf-entractive/tenant-id     --type String --overwrite --value <tenant id>
