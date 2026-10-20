@@ -59,7 +59,7 @@ contains "config.js sets window.__APP_CONFIG__" '__APP_CONFIG__' "$cfg"
 contains "config.js points redirect URI at this origin" "VITE_AZURE_REDIRECT_URI: \"$BASE\"" "$cfg"
 if printf '%s' "$cfg" | grep -qi 'secret'; then echo "FAIL  config.js mentions a secret"; fail=1; else echo "PASS  config.js carries no secret"; fi
 
-echo "== API health (public, via CloudFront)"
+echo "== API health (public)"
 h=$(curl -sS --max-time 20 "$BASE/actuator/health")
 contains "/actuator/health reports UP" '"status":"UP"' "$h"
 check "/actuator/health/readiness is 200"    200 "$(code "$BASE/actuator/health/readiness")"
@@ -72,12 +72,12 @@ check "alg=none token -> 401"                401 "$(code -H "Authorization: Bear
 check "forged RS256 token (wrong key, wrong aud) -> 401" 401 "$(code -H "Authorization: Bearer $(forge some-other-api)" "$BASE/api/resource")"
 check "forged RS256 token on /api/admin -> 401" 401 "$(code -H "Authorization: Bearer $(forge some-other-api)" "$BASE/api/admin")"
 
-echo "== API errors are not rewritten into the SPA (no distribution-wide error pages)"
+echo "== API errors are not rewritten into the SPA (401 stays a 401)"
 ctype=$(curl -sS -o /dev/null -w '%{content_type}' --max-time 20 "$BASE/api/resource")
 if printf '%s' "$ctype" | grep -qi 'text/html'; then echo "FAIL  401 from /api came back as HTML"; fail=1; else echo "PASS  401 from /api is not HTML ($ctype)"; fi
 
 if [ -n "$ALB" ]; then
-  echo "== Origin lock: the ALB refuses requests that did not come through CloudFront"
+  echo "== Origin lock: the ALB refuses requests that did not come through API Gateway"
   # Without the secret header API Gateway injects, the listener answers 403 for
   # every path. A 200/401 here would mean the lock is open.
   for path in /actuator/health /api/resource /; do

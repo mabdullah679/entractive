@@ -43,3 +43,12 @@ How to use: open the folder in Bruno, pick the "local" environment, and first
 edit environments/local.bru so the IDs and ports match your .env.
 A mismatch between that file and the running app was found and fixed during
 testing; the config.js request will flag it if it happens again.
+
+
+AWS deployment (added 2026-10-20)
+What was done: the app was put on AWS with Terraform and a GitHub Actions pipeline. The pipeline logs in to AWS without any stored keys, runs the tests, builds one container holding both the website and the API, creates the network, load balancer and container service, and then runs a smoke test. It ran green once from the prod-hardening branch.
+What worked: the site opened over https at an API Gateway address. Without a token, with a junk token, and with a forged token the API refused with 401. Calling the load balancer directly gave 403. A real browser sign-in then worked: the valid-token button returned 200, the tampered-token button 401, and the admin button 200. The API log in CloudWatch shows the same 200s and 401.
+What did not work as planned: the first design used CloudFront and S3, but AWS refused to create CloudFront because the account is not verified. It was replaced by API Gateway. The CloudFront version is in git history, never run.
+What was not proven: the sign-in reused a Microsoft session already open in the browser, so the password page was not tested. Costs are estimates, about 6 or 7 US cents per hour while running. No load or failover tests.
+It is still running while the owner reviews; it will be destroyed afterwards to save money (commands in README.md). To rebuild after that: re-run the pipeline (gh workflow run ci-cd --ref prod-hardening), after the one-time bootstrap in infra/bootstrap and the four Entra ID values stored in AWS Parameter Store. Details are in README.md.
+Tests are now 31 (not 14): 20 for the API rules and 11 for serving the website safely. The rules that decide who gets in were each deliberately broken once to confirm a test fails.
