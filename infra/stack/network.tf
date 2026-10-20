@@ -46,9 +46,11 @@ resource "aws_default_security_group" "default" {
   vpc_id = aws_vpc.main.id
 }
 
+# NOTE: description is immutable in AWS (changing it forces SG replacement), so it
+# keeps its original text even though the edge is now API Gateway; see the rule below.
 resource "aws_security_group" "alb" {
   name        = "${var.name_prefix}-alb"
-  description = "ALB: HTTP from API Gateway (no published IP range); the listener also requires the X-Origin-Verify secret header"
+  description = "ALB: HTTP from CloudFront origin-facing IPs only"
   vpc_id      = aws_vpc.main.id
   tags        = { Name = "${var.name_prefix}-alb" }
 }
