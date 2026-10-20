@@ -90,3 +90,4 @@ echo
 if [ $fail -eq 0 ]; then echo "SMOKE: ALL PASSED"; else echo "SMOKE: FAILURES"; fi
 exit $fail
 # lock-race proof 1
+# lock-race proof 2
