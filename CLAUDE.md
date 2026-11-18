@@ -33,4 +33,4 @@ external dependency (a real tenant is needed to sign in).
 - `smoke.sh` expects the AWS image (it serves the SPA); against the local compose API it reports SPA-route failures. That is expected, not a regression.
 - README.md and README.txt must be updated together; every number and link in them must be re-checked against the repo.
 - Logic changes need a test watched failing first (mutate guard, see red, reverse the exact edit).
-- Observed: removing the `/api/**` scope guard still gives 401 for an anonymous call (the controller NPEs and the error dispatch is rejected), so a no-token UI test cannot detect that guard; the Java tests cover it.
+- Observed: removing the `/api/**` scope guard still gives 401 for an anonymous call (the log shows an internal 500 that the client sees as 401; cause of the 401 not traced), so a no-token UI test cannot detect that guard; the Java tests cover it.
