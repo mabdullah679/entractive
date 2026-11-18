@@ -2,6 +2,8 @@
 .env
 .env.local
 .env.bak*
+.env.*
+!.env.example
 
 # build output
 node_modules/
@@ -20,3 +22,10 @@ bruno/**/.env
 *.tfstate.*
 *.tfplan
 crash.log
+
+# misc junk
+__pycache__/
+*.pyc
+*.bak
+.idea/
+.vscode/
