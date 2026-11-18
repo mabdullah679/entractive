@@ -4,12 +4,15 @@ name: ci-cd
 # One image holds the API and the built SPA; API Gateway gives it a public HTTPS URL.
 # AWS access is OIDC only (no stored keys). Deploys run from prod-hardening;
 # nothing here runs on, or deploys from, main.
+# Pull requests are NOT run here: the AWS stack is torn down, so the plan job could
+# only fail on a PR. PR checks live in ci.yml (no AWS access needed).
 on:
   push:
     branches: [prod-hardening]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: entractive-${{ github.event_name }}
@@ -26,8 +29,8 @@ jobs:
     name: lint / test / build
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
         with: { distribution: temurin, java-version: "21", cache: maven }
       - name: Resource server tests (includes reject-on-bad-token suite)
         working-directory: resource-server
@@ -35,7 +38,7 @@ jobs:
           AZURE_TENANT_ID: ci-placeholder
           AZURE_CLIENT_ID: ci-placeholder
         run: mvn -B verify
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with: { node-version: "20", cache: npm, cache-dependency-path: spa/package-lock.json }
       - name: SPA build
         working-directory: spa
@@ -50,8 +53,8 @@ jobs:
     runs-on: ubuntu-24.04
     permissions: { id-token: write, contents: read }
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with: { terraform_version: "${{ env.TF_VERSION }}" }
       - name: fmt
         run: terraform fmt -check -recursive infra
@@ -61,7 +64,7 @@ jobs:
             terraform -chdir=$d init -backend=false -input=false
             terraform -chdir=$d validate
           done
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           role-to-assume: arn:aws:iam::346208529954:role/pf-entractive-gha-plan
           aws-region: ${{ env.AWS_REGION }}
@@ -75,21 +78,20 @@ jobs:
   deploy:
     name: apply (deploy)
     needs: [test, terraform]
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-24.04
     permissions: { id-token: write, contents: read }
     outputs:
       site_url: ${{ steps.out.outputs.site_url }}
       alb: ${{ steps.out.outputs.alb }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           role-to-assume: arn:aws:iam::346208529954:role/pf-entractive-gha-apply
           aws-region: ${{ env.AWS_REGION }}
       - name: Guard - correct account
         run: test "$(aws sts get-caller-identity --query Account --output text)" = "346208529954"
-      - uses: aws-actions/amazon-ecr-login@v2
+      - uses: aws-actions/amazon-ecr-login@333ae0114d9847e582ad37cfaaab7995fef8d9df # v2.2.0
         id: ecr
       - name: Build and push the app image (API + built SPA, tag = git SHA)
         run: |
@@ -100,7 +102,7 @@ jobs:
             docker build -f Dockerfile.aws -t "$IMAGE" .
             docker push "$IMAGE"
           fi
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with: { terraform_version: "${{ env.TF_VERSION }}", terraform_wrapper: false }
       - name: terraform apply
         working-directory: infra/stack
@@ -120,12 +122,17 @@ jobs:
     needs: deploy
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Wait for the edge to answer
+        env:
+          SITE_URL: ${{ needs.deploy.outputs.site_url }}
         run: |
           for i in $(seq 1 30); do
-            curl -fsS "${{ needs.deploy.outputs.site_url }}/actuator/health" | grep -q UP && break
+            curl -fsS "$SITE_URL/actuator/health" | grep -q UP && break
             sleep 10
           done
       - name: Run smoke tests
-        run: scripts/smoke.sh "${{ needs.deploy.outputs.site_url }}" "${{ needs.deploy.outputs.alb }}"
+        env:
+          SITE_URL: ${{ needs.deploy.outputs.site_url }}
+          ALB: ${{ needs.deploy.outputs.alb }}
+        run: scripts/smoke.sh "$SITE_URL" "$ALB"
